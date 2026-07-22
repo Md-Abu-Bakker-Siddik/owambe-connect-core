@@ -224,10 +224,9 @@ class OC_Business_Card {
 			$y += 52;
 		}
 
+		// Vendor number is shown centred directly under the QR (see the QR column
+		// block below) — not repeated at the bottom-left.
 		$number = function_exists( 'oc_get_vendor_number' ) ? (string) oc_get_vendor_number( $post_id ) : '';
-		if ( '' !== $number ) {
-			$this->text( $img, 12, 66, 544, $rose, 'VENDOR #' . $number, $fonts['regular'] );
-		}
 
 		// ------------------------------------------------ QR column (gold-framed panel).
 		$ccx = 878;
@@ -236,8 +235,10 @@ class OC_Business_Card {
 		$this->text( $img, 13, $ccx - (int) round( $cw / 2 ), 150, $gold, $cap, $fonts['bold'] );
 
 		$qs = 190; $qx = $ccx - (int) round( $qs / 2 ); $qy = 176;
-		imagefilledrectangle( $img, $qx - 8, $qy - 8, $qx + $qs + 7, $qy + $qs + 7, $gold );
-		imagefilledrectangle( $img, $qx - 5, $qy - 5, $qx + $qs + 4, $qy + $qs + 4, $white );
+		// Blunt/rounded corners on the QR frame + white panel (the QR's own quiet
+		// zone sits inside, so the visible corners come from these rounded plates).
+		$this->fill_round_rect( $img, $qx - 8, $qy - 8, $qx + $qs + 7, $qy + $qs + 7, 16, $gold );
+		$this->fill_round_rect( $img, $qx - 5, $qy - 5, $qx + $qs + 4, $qy + $qs + 4, 13, $white );
 		$this->draw_qr( $img, (string) $permalink, $qx, $qy, $qs, $gold, $gray, $fonts );
 
 		// Gold diamond separator (version-safe imagefilledpolygon signature).
@@ -263,6 +264,21 @@ class OC_Business_Card {
 		$this->text( $img, 20, $ccx - (int) round( $bw / 2 ), 526, $gold, $br, $fonts['display'] );
 
 		return $img;
+	}
+
+	/**
+	 * Fill a rounded rectangle — centre cross plus four corner discs. Used to
+	 * give the QR frame/panel soft, blunt corners instead of sharp squares.
+	 */
+	private function fill_round_rect( $img, $x1, $y1, $x2, $y2, $r, $color ) {
+		$r = (int) max( 0, min( $r, ( $x2 - $x1 ) / 2, ( $y2 - $y1 ) / 2 ) );
+		imagefilledrectangle( $img, $x1 + $r, $y1, $x2 - $r, $y2, $color );
+		imagefilledrectangle( $img, $x1, $y1 + $r, $x2, $y2 - $r, $color );
+		$d = $r * 2;
+		imagefilledellipse( $img, $x1 + $r, $y1 + $r, $d, $d, $color );
+		imagefilledellipse( $img, $x2 - $r, $y1 + $r, $d, $d, $color );
+		imagefilledellipse( $img, $x1 + $r, $y2 - $r, $d, $d, $color );
+		imagefilledellipse( $img, $x2 - $r, $y2 - $r, $d, $d, $color );
 	}
 
 	/**
