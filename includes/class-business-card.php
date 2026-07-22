@@ -82,9 +82,12 @@ class OC_Business_Card {
 	/**
 	 * Draw the full card and return the GD image resource.
 	 *
-	 * Layout: gold outer border, burgundy left band (logo/monogram +
-	 * vendor number), right column with name / category+location /
-	 * divider / contact rows, QR bottom-right.
+	 * Premium layout: a clean, solid HORIZONTAL burgundy header band
+	 * (#800020) across the full width — no patterns, no gold overlays on it —
+	 * carrying the white logo plate, business name and category/location.
+	 * A slim gold hairline sits just BELOW the band (in the white zone, never
+	 * over the burgundy), then a white body holds the contact rows on the left
+	 * and the QR bottom-right.
 	 *
 	 * @param int $post_id Vendor post ID.
 	 * @return GdImage
@@ -94,87 +97,87 @@ class OC_Business_Card {
 
 		$white    = imagecolorallocate( $img, 255, 255, 255 );
 		$gold     = imagecolorallocate( $img, 201, 169, 97 );  // #C9A961
-		$burgundy = imagecolorallocate( $img, 110, 15, 44 );   // #6E0F2C
+		$burgundy = imagecolorallocate( $img, 128, 0, 32 );    // #800020
+		$cream    = imagecolorallocate( $img, 232, 221, 201 ); // warm off-white for text on burgundy
 		$gray     = imagecolorallocate( $img, 107, 107, 107 ); // #6b6b6b
 		$dark     = imagecolorallocate( $img, 51, 51, 51 );    // #333
 
-		// White background + 8px gold outer border + burgundy left band.
-		imagefilledrectangle( $img, 0, 0, self::W - 1, self::H - 1, $gold );
-		imagefilledrectangle( $img, 8, 8, self::W - 9, self::H - 9, $white );
-		imagefilledrectangle( $img, 8, 8, 339, self::H - 9, $burgundy );
+		$band_h = 250; // height of the solid horizontal burgundy base.
 
-		$fonts   = $this->fonts();
-		$band_cx = 174; // horizontal centre of the left band.
+		// White body + solid horizontal burgundy header + slim gold separator.
+		// The burgundy is one flat block — nothing is drawn over it in gold.
+		imagefilledrectangle( $img, 0, 0, self::W - 1, self::H - 1, $white );
+		imagefilledrectangle( $img, 0, 0, self::W - 1, $band_h - 1, $burgundy );
+		imagefilledrectangle( $img, 0, $band_h, self::W - 1, $band_h + 3, $gold );
 
-		// ------------------------------------------------ Left band: logo or monogram.
-		$name = wp_specialchars_decode( get_the_title( $post_id ), ENT_QUOTES );
+		$fonts = $this->fonts();
+		$name  = wp_specialchars_decode( get_the_title( $post_id ), ENT_QUOTES );
+
+		// ------------------------------------------------ Header: white logo plate (left).
+		$plate   = 180;
+		$plate_x = 56;
+		$plate_y = (int) round( ( $band_h - $plate ) / 2 );
+		imagefilledrectangle( $img, $plate_x, $plate_y, $plate_x + $plate - 1, $plate_y + $plate - 1, $white );
+
 		$logo = $this->load_logo( $post_id );
 		if ( $logo ) {
-			// White plate 220x220 centred in the band, logo fitted inside
-			// with padding, aspect ratio preserved.
-			$bx = $band_cx - 110;
-			$by = 110;
-			imagefilledrectangle( $img, $bx, $by, $bx + 219, $by + 219, $white );
-
+			// Logo fitted inside the plate with padding, aspect ratio preserved.
 			$sw    = imagesx( $logo );
 			$sh    = imagesy( $logo );
-			$inner = 180;
+			$inner = $plate - 40;
 			$scale = min( $inner / max( 1, $sw ), $inner / max( 1, $sh ) );
 			$dw    = max( 1, (int) round( $sw * $scale ) );
 			$dh    = max( 1, (int) round( $sh * $scale ) );
-			$dx    = $bx + (int) round( ( 220 - $dw ) / 2 );
-			$dy    = $by + (int) round( ( 220 - $dh ) / 2 );
+			$dx    = $plate_x + (int) round( ( $plate - $dw ) / 2 );
+			$dy    = $plate_y + (int) round( ( $plate - $dh ) / 2 );
 			imagecopyresampled( $img, $logo, $dx, $dy, 0, 0, $dw, $dh, $sw, $sh );
 			imagedestroy( $logo );
 		} else {
-			// Monogram — first letters of up to two words of the name.
+			// Monogram — burgundy on the white plate (keeps the burgundy band
+			// itself clean; no gold sits on the burgundy).
 			$mono = $this->monogram( $name );
 			if ( '' !== $mono ) {
-				$size = 80;
-				while ( $size > 24 && $this->text_width( $mono, $fonts['display'], $size ) > 260 ) {
+				$size = 88;
+				while ( $size > 28 && $this->text_width( $mono, $fonts['display'], $size ) > $plate - 48 ) {
 					$size -= 4;
 				}
 				$mw = $this->text_width( $mono, $fonts['display'], $size );
-				$this->text( $img, $size, $band_cx - (int) round( $mw / 2 ), 220 + (int) round( $size * 0.36 ), $gold, $mono, $fonts['display'] );
+				$cx = $plate_x + (int) round( $plate / 2 );
+				$cy = $plate_y + (int) round( $plate / 2 );
+				$this->text( $img, $size, $cx - (int) round( $mw / 2 ), $cy + (int) round( $size * 0.36 ), $burgundy, $mono, $fonts['display'] );
 			}
 		}
 
-		// Vendor number — small white line at the bottom of the band.
-		$number = function_exists( 'oc_get_vendor_number' ) ? oc_get_vendor_number( $post_id ) : '';
-		if ( '' !== $number ) {
-			$label = 'Vendor #' . $number;
-			$lw    = $this->text_width( $label, $fonts['regular'], 13 );
-			$this->text( $img, 13, $band_cx - (int) round( $lw / 2 ), 570, $white, $label, $fonts['regular'] );
-		}
+		// ------------------------------------------------ Header: name + meta (right of plate).
+		$text_x = $plate_x + $plate + 44;
+		$text_w = self::W - $text_x - 56;
 
-		// ------------------------------------------------ Right column (x 380..1000).
-		$col_x = 380;
-		$col_w = 620;
-
-		// Business name — display font, wrapped to max 2 lines, shrunk to fit.
-		list( $lines, $ns ) = $this->wrap_fit( $name, $fonts['display'], 40, $col_w, 2, 22 );
-		$y = 100 + $ns;
-		foreach ( $lines as $line ) {
-			$this->text( $img, $ns, $col_x, (int) $y, $burgundy, $line, $fonts['display'] );
-			$y += (int) round( $ns * 1.35 );
-		}
-		$y -= (int) round( $ns * 1.35 ); // back to the last baseline.
-
-		// Category • Location.
 		$terms    = get_the_terms( $post_id, OC_TAX );
 		$category = ( $terms && ! is_wp_error( $terms ) ) ? (string) reset( $terms )->name : '';
 		$location = (string) get_post_meta( $post_id, '_oc_location', true );
 		$meta     = implode( ' • ', array_filter( [ $category, $location ] ) );
-		if ( '' !== $meta ) {
-			$y += 42;
-			$this->text( $img, 17, $col_x, (int) $y, $gray, $this->fit_ellipsis( $meta, $fonts['regular'], 17, $col_w ), $fonts['regular'] );
+
+		list( $lines, $ns ) = $this->wrap_fit( $name, $fonts['display'], 48, $text_w, 2, 26 );
+		$line_h    = (int) round( $ns * 1.34 );
+		$meta_size = 20;
+		$meta_gap  = 34;
+		$block_h   = count( $lines ) * $line_h + ( '' !== $meta ? ( $meta_gap + $meta_size ) : 0 );
+		$top       = (int) round( ( $band_h - $block_h ) / 2 );
+		if ( $top < 30 ) {
+			$top = 30;
 		}
 
-		// 2px gold divider.
-		$y += 24;
-		imagefilledrectangle( $img, $col_x, (int) $y, $col_x + $col_w, (int) $y + 1, $gold );
+		$baseline = $top + $ns;
+		foreach ( $lines as $line ) {
+			$this->text( $img, $ns, $text_x, $baseline, $white, $line, $fonts['display'] );
+			$baseline += $line_h;
+		}
+		if ( '' !== $meta ) {
+			$meta_y = $baseline - $line_h + $meta_gap + (int) round( $meta_size * 0.5 );
+			$this->text( $img, $meta_size, $text_x, $meta_y, $cream, $this->fit_ellipsis( $meta, $fonts['regular'], $meta_size, $text_w ), $fonts['regular'] );
+		}
 
-		// Contact rows — filterable so the visible fields are config, not code.
+		// ------------------------------------------------ Body: contact rows (left).
 		$permalink = get_permalink( $post_id );
 		$rows      = [
 			[ 'WhatsApp', (string) get_post_meta( $post_id, '_oc_whatsapp', true ) ],
@@ -183,27 +186,41 @@ class OC_Business_Card {
 		];
 		$rows = apply_filters( 'oc_business_card_fields', $rows, $post_id );
 
-		$y += 45;
+		$col_x = 60;
+
+		// Eyebrow + slim gold rule above the contact block (white zone, not on burgundy).
+		$this->text( $img, 13, $col_x, 312, $gray, 'GET IN TOUCH', $fonts['bold'] );
+		imagefilledrectangle( $img, $col_x, 328, $col_x + 700, 329, $gold );
+
+		$y = 372;
 		foreach ( (array) $rows as $row ) {
 			$label = isset( $row[0] ) ? (string) $row[0] : '';
 			$value = isset( $row[1] ) ? trim( (string) $row[1] ) : '';
 			if ( '' === $value ) {
 				continue; // skip empty rows.
 			}
-			imagefilledellipse( $img, $col_x + 10, (int) $y - 6, 9, 9, $burgundy );
+			imagefilledellipse( $img, $col_x + 7, (int) $y - 6, 10, 10, $burgundy );
 			$this->text( $img, 16, $col_x + 28, (int) $y, $dark, $label, $fonts['bold'] );
-			$lx = $col_x + 28 + $this->text_width( $label, $fonts['bold'], 16 ) + 12;
-			// Values stop short of the QR column (x 830) — rows can shift
-			// down into its band when the name wraps to two lines.
-			$this->text( $img, 16, (int) $lx, (int) $y, $dark, $this->fit_ellipsis( $value, $fonts['regular'], 16, max( 120, 815 - (int) $lx ) ), $fonts['regular'] );
-			$y += 44;
+			$lx = $col_x + 28 + $this->text_width( $label, $fonts['bold'], 16 ) + 14;
+			// Values stop short of the QR column (x 814) so they never collide.
+			$this->text( $img, 16, (int) $lx, (int) $y, $dark, $this->fit_ellipsis( $value, $fonts['regular'], 16, max( 120, 780 - (int) $lx ) ), $fonts['regular'] );
+			$y += 52;
 		}
 
-		// ------------------------------------------------ QR bottom-right + caption.
-		$this->draw_qr( $img, (string) $permalink, 830, 380, 190, $gold, $gray, $fonts );
+		// Vendor number — subtle caption at the bottom-left of the body.
+		$number = function_exists( 'oc_get_vendor_number' ) ? oc_get_vendor_number( $post_id ) : '';
+		if ( '' !== $number ) {
+			$this->text( $img, 13, $col_x, 566, $gray, 'Vendor #' . $number, $fonts['regular'] );
+		}
+
+		// ------------------------------------------------ Body: QR bottom-right + caption.
+		$qr = 180;
+		$qx = self::W - 56 - $qr;
+		$qy = $band_h + (int) round( ( ( self::H - $band_h ) - $qr ) / 2 ) - 14;
+		$this->draw_qr( $img, (string) $permalink, $qx, $qy, $qr, $gold, $gray, $fonts );
 		$caption = 'Scan to view profile';
 		$cw      = $this->text_width( $caption, $fonts['regular'], 12 );
-		$this->text( $img, 12, 925 - (int) round( $cw / 2 ), 587, $gray, $caption, $fonts['regular'] );
+		$this->text( $img, 12, $qx + (int) round( $qr / 2 ) - (int) round( $cw / 2 ), $qy + $qr + 26, $gray, $caption, $fonts['regular'] );
 
 		return $img;
 	}
