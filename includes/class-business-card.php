@@ -241,27 +241,43 @@ class OC_Business_Card {
 
 		// ------------------------------------------------ Contact rows.
 		$permalink = get_permalink( $post_id );
+		$ig        = trim( (string) get_post_meta( $post_id, '_oc_instagram', true ) );
+		$ig        = '' !== $ig ? '@' . ltrim( $ig, '@' ) : '';
 		$rows      = [
-			[ 'WhatsApp', (string) get_post_meta( $post_id, '_oc_whatsapp', true ) ],
-			[ 'Email', (string) get_post_meta( $post_id, '_oc_public_email', true ) ],
-			[ 'Web', $this->display_url( $permalink ) ],
+			[ 'WhatsApp',  (string) get_post_meta( $post_id, '_oc_whatsapp', true ) ],
+			[ 'Email',     (string) get_post_meta( $post_id, '_oc_public_email', true ) ],
+			[ 'Instagram', $ig ],
+			[ 'Web',       $this->display_url( $permalink ) ],
 		];
 		$rows = apply_filters( 'oc_business_card_fields', $rows, $post_id );
 
 		$this->text( $img, 12, 66, 322, $gold, 'GET IN TOUCH', $fonts['bold'] );
-		$y = 362;
+		$y = 356;
 		foreach ( (array) $rows as $row ) {
 			$label = isset( $row[0] ) ? (string) $row[0] : '';
 			$value = isset( $row[1] ) ? trim( (string) $row[1] ) : '';
 			if ( '' === $value ) {
 				continue;
 			}
-			imageellipse( $img, 73, (int) $y - 5, 14, 14, $gold );          // node ring
-			imagefilledellipse( $img, 73, (int) $y - 5, 5, 5, $goldlt );    // node core
-			$this->text( $img, 16, 98, (int) $y, $white, $label, $fonts['bold'] );
-			$lx = 98 + $this->text_width( $label, $fonts['bold'], 16 ) + 14;
+			// Pick the icon from the heading; filter-added rows get a neutral node.
+			$key = strtolower( preg_replace( '/[^a-z]/i', '', $label ) );
+			if ( in_array( $key, [ 'website', 'web', 'url', 'site' ], true ) ) {
+				$icon = 'web';
+			} elseif ( in_array( $key, [ 'whatsapp', 'wa' ], true ) ) {
+				$icon = 'whatsapp';
+			} elseif ( in_array( $key, [ 'email', 'mail' ], true ) ) {
+				$icon = 'email';
+			} elseif ( in_array( $key, [ 'instagram', 'insta', 'ig' ], true ) ) {
+				$icon = 'instagram';
+			} else {
+				$icon = 'node';
+			}
+			$this->draw_contact_icon( $img, $icon, 74, (int) $y - 5, $gold );
+
+			$this->text( $img, 16, 106, (int) $y, $white, $label, $fonts['bold'] );
+			$lx = 106 + $this->text_width( $label, $fonts['bold'], 16 ) + 14;
 			$this->text( $img, 15, (int) $lx, (int) $y, $cream, $this->fit_ellipsis( $value, $fonts['regular'], 15, max( 120, 690 - (int) $lx ) ), $fonts['regular'] );
-			$y += 52;
+			$y += 50;
 		}
 
 		// Vendor number is shown centred directly under the QR (see the QR column
@@ -319,6 +335,89 @@ class OC_Business_Card {
 		imagefilledellipse( $img, $x2 - $r, $y1 + $r, $d, $d, $color );
 		imagefilledellipse( $img, $x1 + $r, $y2 - $r, $d, $d, $color );
 		imagefilledellipse( $img, $x2 - $r, $y2 - $r, $d, $d, $color );
+	}
+
+	/** Version-safe filled polygon (imagefilledpolygon dropped its count arg in PHP 8.1). */
+	private function fill_poly( $img, array $points, $color ) {
+		if ( PHP_VERSION_ID >= 80100 ) {
+			imagefilledpolygon( $img, $points, $color );
+		} else {
+			imagefilledpolygon( $img, $points, (int) ( count( $points ) / 2 ), $color );
+		}
+	}
+
+	/**
+	 * Draw a crisp, solid contact icon centred at ($cx,$cy) for the given
+	 * channel. Each icon is a gold silhouette with its detail "knocked out"
+	 * (transparent, so the card shows through), rendered at 4x on a buffer and
+	 * downsampled for smooth, anti-aliased edges. Unknown channels get a dot.
+	 */
+	private function draw_contact_icon( $img, $type, $cx, $cy, $color ) {
+		$box = 28;
+		$ss  = 4;
+		$b   = $box * $ss; // buffer size
+
+		$buf = imagecreatetruecolor( $b, $b );
+		imagesavealpha( $buf, true );
+		imagealphablending( $buf, false );
+		$clear = imagecolorallocatealpha( $buf, 0, 0, 0, 127 );
+		imagefilledrectangle( $buf, 0, 0, $b, $b, $clear ); // fully transparent
+		imagealphablending( $buf, true );
+		$g = imagecolorallocate( $buf, 201, 169, 97 ); // gold
+
+		switch ( $type ) {
+			case 'email': // solid envelope with a knocked-out flap crease
+				$this->fill_round_rect( $buf, 14, 34, 98, 78, 9, $g );
+				imagealphablending( $buf, false );
+				imagesetthickness( $buf, 8 );
+				imageline( $buf, 16, 37, 56, 62, $clear );
+				imageline( $buf, 96, 37, 56, 62, $clear );
+				imagesetthickness( $buf, 1 );
+				imagealphablending( $buf, true );
+				break;
+
+			case 'whatsapp': // solid chat bubble + tail, phone handset knocked out
+				imagefilledellipse( $buf, 56, 52, 82, 82, $g );
+				$this->fill_poly( $buf, [ 20, 86, 48, 78, 28, 106 ], $g ); // tail
+				imagealphablending( $buf, false );
+				imagesetthickness( $buf, 13 );
+				imagearc( $buf, 56, 40, 48, 48, 20, 160, $clear );  // curved handle (a downward "smile")
+				imagesetthickness( $buf, 1 );
+				imagefilledellipse( $buf, 34, 52, 24, 24, $clear ); // earpiece bulb (left)
+				imagefilledellipse( $buf, 78, 52, 24, 24, $clear ); // mouthpiece bulb (right)
+				imagealphablending( $buf, true );
+				break;
+
+			case 'instagram': // solid camera body, lens ring + viewfinder knockouts
+				$this->fill_round_rect( $buf, 18, 18, 94, 94, 20, $g );
+				imagealphablending( $buf, false );
+				imagefilledellipse( $buf, 56, 56, 62, 62, $clear ); // lens gap
+				imagealphablending( $buf, true );
+				imagefilledellipse( $buf, 56, 56, 40, 40, $g );      // lens centre → gold ring
+				imagealphablending( $buf, false );
+				imagefilledellipse( $buf, 80, 32, 11, 11, $clear );  // viewfinder dot
+				imagealphablending( $buf, true );
+				break;
+
+			case 'web': // solid globe with knocked-out grid
+				imagefilledellipse( $buf, 56, 56, 78, 78, $g );
+				imagealphablending( $buf, false );
+				imagesetthickness( $buf, 5 );
+				imageline( $buf, 56, 17, 56, 95, $clear );           // meridian
+				imageline( $buf, 17, 56, 95, 56, $clear );           // equator
+				imageellipse( $buf, 56, 56, 38, 78, $clear );        // longitude curve
+				imageellipse( $buf, 56, 56, 78, 44, $clear );        // latitude curve
+				imagesetthickness( $buf, 1 );
+				imagealphablending( $buf, true );
+				break;
+
+			default: // neutral node
+				imagefilledellipse( $buf, 56, 56, 22, 22, $g );
+		}
+
+		imagealphablending( $img, true );
+		imagecopyresampled( $img, $buf, (int) round( $cx - $box / 2 ), (int) round( $cy - $box / 2 ), 0, 0, $box, $box, $b, $b );
+		imagedestroy( $buf );
 	}
 
 	/**
