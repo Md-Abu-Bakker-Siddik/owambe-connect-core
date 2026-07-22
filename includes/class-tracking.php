@@ -180,6 +180,24 @@ class OC_Tracking {
 	// ─── Read API (shared by OC_Admin_Analytics + vendor analytics tab) ─────
 
 	/**
+	 * The contact-click channels, in display order, mapped to their i18n label.
+	 * Single source of truth for every UI that lists per-method clicks (admin
+	 * analytics KPI cards + breakdowns, vendor analytics tab). Keys are the
+	 * `click_*` metric names stored in oc_vendor_stats and accepted by record().
+	 *
+	 * @return array<string,string> metric => label
+	 */
+	public static function click_channels() {
+		return [
+			'click_whatsapp'  => __( 'WhatsApp',  'owambe-connect-core' ),
+			'click_email'     => __( 'Email',     'owambe-connect-core' ),
+			'click_instagram' => __( 'Instagram', 'owambe-connect-core' ),
+			'click_facebook'  => __( 'Facebook',  'owambe-connect-core' ),
+			'click_website'   => __( 'Website',   'owambe-connect-core' ),
+		];
+	}
+
+	/**
 	 * Per-metric sums for one vendor over the last $days (window ends today).
 	 * Always returns every metric key, zero-filled.
 	 *
@@ -294,6 +312,44 @@ class OC_Tracking {
 			'views'  => (int) ( $row['views'] ?? 0 ),
 			'clicks' => (int) ( $row['clicks'] ?? 0 ),
 		];
+	}
+
+	/**
+	 * Site-wide clicks broken out per contact method over an explicit [from,to]
+	 * window (Y-m-d). Complements totals_range() (which sums all channels into a
+	 * single "clicks" figure) so the admin can see WhatsApp vs Email vs Instagram
+	 * etc. Always returns every click channel key, zero-filled and in the display
+	 * order defined by click_channels().
+	 *
+	 * @return array<string,int> click-metric => total
+	 */
+	public static function channel_totals_range( $from, $to ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'oc_vendor_stats';
+		[ $from, $to ] = self::clamp_range( $from, $to );
+		$click_like = $wpdb->esc_like( 'click_' ) . '%';
+
+		$out = array_fill_keys( array_keys( self::click_channels() ), 0 );
+
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT metric, SUM(`count`) AS total
+			 FROM {$table}
+			 WHERE stat_date BETWEEN %s AND %s
+			   AND metric LIKE %s
+			 GROUP BY metric",
+			$from,
+			$to,
+			$click_like
+		), ARRAY_A );
+
+		foreach ( (array) $rows as $row ) {
+			$metric = (string) ( $row['metric'] ?? '' );
+			if ( isset( $out[ $metric ] ) ) {
+				$out[ $metric ] = (int) $row['total'];
+			}
+		}
+		return $out;
 	}
 
 	/**

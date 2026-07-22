@@ -94,6 +94,22 @@ class OC_Admin_Analytics {
 		}
 
 		$base_url = admin_url( 'edit.php?post_type=' . OC_CPT . '&page=' . self::PAGE );
+
+		// Drill-down metric for the tracking KPI cards. Clicking "Profile views"
+		// or "Contact clicks" reloads with ?metric= and jumps to the per-vendor
+		// breakdown table below, which re-ranks itself by the chosen metric.
+		$active_metric = isset( $_GET['metric'] ) && in_array( $_GET['metric'], [ 'views', 'clicks' ], true ) ? sanitize_key( $_GET['metric'] ) : '';
+		$sort_metric   = $active_metric ?: 'views';
+
+		// Carry the current date/category filters onto the drill links so the
+		// breakdown honours the same window the cards were counted over.
+		$kpi_filter_args = [ 'range' => $this->filters['range'], 'cat' => $this->filters['cat'] ];
+		if ( 'custom' === $this->filters['range'] ) {
+			$kpi_filter_args['from'] = substr( $this->filters['from'], 0, 10 );
+			$kpi_filter_args['to']   = substr( $this->filters['to'], 0, 10 );
+		}
+		$views_drill_url  = add_query_arg( array_merge( $kpi_filter_args, [ 'metric' => 'views' ] ),  $base_url ) . '#oc-an-vendor-breakdown';
+		$clicks_drill_url = add_query_arg( array_merge( $kpi_filter_args, [ 'metric' => 'clicks' ] ), $base_url ) . '#oc-an-vendor-breakdown';
 		?>
 		<div class="wrap oc-an">
 			<h1 style="margin-bottom:6px;display:flex;align-items:center;gap:10px">
@@ -209,8 +225,8 @@ class OC_Admin_Analytics {
 				$trk_to     = substr( (string) $this->filters['to'], 0, 10 );
 				$trk_totals = class_exists( 'OC_Tracking' ) ? OC_Tracking::totals_range( $trk_from, $trk_to ) : [ 'views' => 0, 'clicks' => 0 ];
 				?>
-				<?php $this->kpi_card( __( 'Profile views (period)',  'owambe-connect-core' ), number_format_i18n( (int) $trk_totals['views'] ),  'visibility', '#2E7D5B' ); ?>
-				<?php $this->kpi_card( __( 'Contact clicks (period)', 'owambe-connect-core' ), number_format_i18n( (int) $trk_totals['clicks'] ), 'phone',      '#A8893D' ); ?>
+				<?php $this->kpi_card( __( 'Profile views (period)',  'owambe-connect-core' ), number_format_i18n( (int) $trk_totals['views'] ),  'visibility', '#2E7D5B', $views_drill_url,  'views' === $active_metric ); ?>
+				<?php $this->kpi_card( __( 'Contact clicks (period)', 'owambe-connect-core' ), number_format_i18n( (int) $trk_totals['clicks'] ), 'phone',      '#A8893D', $clicks_drill_url, 'clicks' === $active_metric ); ?>
 			</div>
 
 			<!-- ============== Charts row 1 ============== -->
@@ -240,7 +256,16 @@ class OC_Admin_Analytics {
 			<!-- ============== Phase 2: views & clicks ============== -->
 			<?php
 			$trk_series  = class_exists( 'OC_Tracking' ) ? OC_Tracking::timeseries_range( $trk_from, $trk_to ) : [];
-			$top_vendors = class_exists( 'OC_Tracking' ) ? OC_Tracking::top_vendors_range( $trk_from, $trk_to, 8 ) : [];
+			// Over-fetch, then rank by whichever metric the KPI drill-down selected
+			// (views by default, clicks when the "Contact clicks" card was clicked).
+			$top_vendors = class_exists( 'OC_Tracking' ) ? OC_Tracking::top_vendors_range( $trk_from, $trk_to, 50 ) : [];
+			usort( $top_vendors, static function ( $a, $b ) use ( $sort_metric ) {
+				$other = 'views' === $sort_metric ? 'clicks' : 'views';
+				return $a[ $sort_metric ] === $b[ $sort_metric ]
+					? $b[ $other ] <=> $a[ $other ]
+					: $b[ $sort_metric ] <=> $a[ $sort_metric ];
+			} );
+			$top_vendors = array_slice( $top_vendors, 0, 8 );
 			?>
 			<div class="oc-an-row">
 				<div class="oc-an-card oc-an-card--wide">
@@ -254,36 +279,81 @@ class OC_Admin_Analytics {
 					<?php endif; ?>
 				</div>
 
-				<div class="oc-an-card">
+				<?php
+				$is_clicks_rank = 'clicks' === $sort_metric;
+				$rank_title     = $is_clicks_rank ? __( 'Most-contacted vendors', 'owambe-connect-core' ) : __( 'Most-viewed vendors', 'owambe-connect-core' );
+				$rank_col       = $is_clicks_rank ? __( 'Clicks', 'owambe-connect-core' ) : __( 'Views', 'owambe-connect-core' );
+				?>
+				<div class="oc-an-card" id="oc-an-vendor-breakdown">
 					<h3 style="display:flex;align-items:center;gap:8px;justify-content:space-between">
-						<span><?php esc_html_e( 'Most-viewed vendors', 'owambe-connect-core' ); ?></span>
+						<span><?php echo esc_html( $rank_title ); ?></span>
 						<?php if ( ! empty( $top_vendors ) ) : ?>
-							<span style="font-size:11px;font-weight:600;color:#6B6361;text-transform:uppercase;letter-spacing:.06em"><?php esc_html_e( 'Views', 'owambe-connect-core' ); ?></span>
+							<span style="font-size:11px;font-weight:600;color:#6B6361;text-transform:uppercase;letter-spacing:.06em"><?php echo esc_html( $rank_col ); ?></span>
 						<?php endif; ?>
 					</h3>
 					<?php if ( ! empty( $top_vendors ) ) : ?>
 						<table class="oc-an-bars oc-an-top">
 							<?php
-							$tv_max = max( array_column( $top_vendors, 'views' ) ) ?: 1;
+							$tv_max = max( array_column( $top_vendors, $sort_metric ) ) ?: 1;
 							foreach ( $top_vendors as $tv ) :
-								$pct  = round( ( $tv['views'] / $tv_max ) * 100 );
-								$vurl = add_query_arg( 'vendor', $tv['vendor_id'], $base_url );
-								/* translators: %s: number of contact clicks */
-								$hint = sprintf( _n( '%s contact click', '%s contact clicks', $tv['clicks'], 'owambe-connect-core' ), number_format_i18n( $tv['clicks'] ) );
+								$primary = (int) $tv[ $sort_metric ];
+								$pct     = round( ( $primary / $tv_max ) * 100 );
+								$vurl    = add_query_arg( 'vendor', $tv['vendor_id'], $base_url );
+								$hint    = $is_clicks_rank
+									/* translators: %s: number of profile views */
+									? sprintf( _n( '%s profile view', '%s profile views', $tv['views'], 'owambe-connect-core' ), number_format_i18n( $tv['views'] ) )
+									/* translators: %s: number of contact clicks */
+									: sprintf( _n( '%s contact click', '%s contact clicks', $tv['clicks'], 'owambe-connect-core' ), number_format_i18n( $tv['clicks'] ) );
 								?>
 								<tr>
 									<td class="oc-an-bars__label">
 										<a href="<?php echo esc_url( $vurl ); ?>" title="<?php echo esc_attr( $hint ); ?>"><?php echo esc_html( $tv['title'] ); ?></a>
 									</td>
 									<td class="oc-an-bars__bar"><span style="width:<?php echo esc_attr( $pct ); ?>%"></span></td>
-									<td class="oc-an-bars__val"><?php echo esc_html( number_format_i18n( $tv['views'] ) ); ?></td>
+									<td class="oc-an-bars__val"><?php echo esc_html( number_format_i18n( $primary ) ); ?></td>
 								</tr>
 							<?php endforeach; ?>
 						</table>
 					<?php else : ?>
-						<p class="oc-an-empty"><?php esc_html_e( 'No vendor views recorded in this period yet.', 'owambe-connect-core' ); ?></p>
+						<p class="oc-an-empty"><?php echo esc_html( $is_clicks_rank ? __( 'No vendor contact clicks recorded in this period yet.', 'owambe-connect-core' ) : __( 'No vendor views recorded in this period yet.', 'owambe-connect-core' ) ); ?></p>
 					<?php endif; ?>
 				</div>
+			</div>
+
+			<!-- ============== Phase 2: clicks by contact method ============== -->
+			<?php
+			$channel_labels = class_exists( 'OC_Tracking' ) ? OC_Tracking::click_channels() : [];
+			$channel_totals = class_exists( 'OC_Tracking' ) ? OC_Tracking::channel_totals_range( $trk_from, $trk_to ) : [];
+			$channel_colors = [
+				'click_whatsapp'  => '#2E7D5B',
+				'click_email'     => '#6E0F2C',
+				'click_instagram' => '#B0354F',
+				'click_facebook'  => '#1877F2',
+				'click_website'   => '#A8893D',
+			];
+			$channel_sum = array_sum( $channel_totals );
+			?>
+			<div class="oc-an-card">
+				<h3><?php esc_html_e( 'Clicks by contact method', 'owambe-connect-core' ); ?></h3>
+				<?php if ( $channel_sum > 0 ) : ?>
+					<table class="oc-an-bars">
+						<?php
+						$cmax = max( $channel_totals ) ?: 1;
+						foreach ( $channel_labels as $metric => $label ) :
+							$val   = (int) ( $channel_totals[ $metric ] ?? 0 );
+							$pct   = round( ( $val / $cmax ) * 100 );
+							$color = $channel_colors[ $metric ] ?? '#6E0F2C';
+							?>
+							<tr>
+								<td class="oc-an-bars__label"><?php echo esc_html( $label ); ?></td>
+								<td class="oc-an-bars__bar"><span style="width:<?php echo esc_attr( $pct ); ?>%;background:<?php echo esc_attr( $color ); ?>"></span></td>
+								<td class="oc-an-bars__val"><?php echo esc_html( number_format_i18n( $val ) ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</table>
+				<?php else : ?>
+					<p class="oc-an-empty"><?php esc_html_e( 'No contact clicks recorded in this period yet.', 'owambe-connect-core' ); ?></p>
+				<?php endif; ?>
 			</div>
 
 			<!-- ============== Charts row 2 ============== -->
@@ -492,6 +562,12 @@ class OC_Admin_Analytics {
 			.oc-an-kpi__badge .dashicons { font-size:20px; width:20px; height:20px; line-height:20px; }
 			.oc-an-kpi__label { font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:#6B6361; font-weight:600; }
 			.oc-an-kpi__val   { font-family:Georgia, serif; font-size:2.15rem; line-height:1.05; color:#1F1B1A; font-weight:700; }
+			.oc-an-kpi__drill { font-size:11px; font-weight:600; color:var(--oc-kpi,#6E0F2C); letter-spacing:.02em; margin-top:auto; opacity:0; transition:opacity .15s; }
+			a.oc-an-kpi { text-decoration:none; color:inherit; cursor:pointer; transition:box-shadow .15s, transform .15s, border-color .15s; }
+			.oc-an-kpi--link:hover, .oc-an-kpi--link:focus-visible { box-shadow:0 4px 14px rgba(31,27,26,.12); transform:translateY(-2px); border-color:#C9A961; }
+			.oc-an-kpi--link:focus-visible { outline:2px solid #6E0F2C; outline-offset:2px; }
+			.oc-an-kpi--link:hover .oc-an-kpi__drill, .oc-an-kpi--link:focus-visible .oc-an-kpi__drill, .oc-an-kpi--link.is-active .oc-an-kpi__drill { opacity:1; }
+			.oc-an-kpi--link.is-active { border-color:#6E0F2C; box-shadow:0 0 0 2px rgba(110,15,44,.22); }
 
 			.oc-an-row { display:grid; grid-template-columns:1fr; gap:12px; margin-bottom:14px; }
 			@media (min-width: 1100px) { .oc-an-row { grid-template-columns:1fr 1fr; } .oc-an-row:has(.oc-an-card--wide) { grid-template-columns:2fr 1fr; } }
@@ -516,16 +592,30 @@ class OC_Admin_Analytics {
 		<?php
 	}
 
-	private function kpi_card( $label, $value, $dashicon, $color ) {
+	/**
+	 * Render one KPI card.
+	 *
+	 * @param string $href   Optional drill-down URL. When set the card renders
+	 *                       as a clickable <a> that filters the per-vendor
+	 *                       breakdown below instead of a static <div>.
+	 * @param bool   $active Whether this card's drill-down is the one currently shown.
+	 */
+	private function kpi_card( $label, $value, $dashicon, $color, $href = '', $active = false ) {
+		$open = $href
+			? '<a class="oc-an-kpi oc-an-kpi--link' . ( $active ? ' is-active' : '' ) . '" href="' . esc_url( $href ) . '" style="--oc-kpi:' . esc_attr( $color ) . '">'
+			: '<div class="oc-an-kpi" style="--oc-kpi:' . esc_attr( $color ) . '">';
+		echo $open; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- values escaped above.
 		?>
-		<div class="oc-an-kpi" style="--oc-kpi:<?php echo esc_attr( $color ); ?>">
 			<span class="oc-an-kpi__badge">
 				<span class="dashicons dashicons-<?php echo esc_attr( $dashicon ); ?>"></span>
 			</span>
 			<span class="oc-an-kpi__label"><?php echo esc_html( $label ); ?></span>
 			<span class="oc-an-kpi__val"><?php echo esc_html( $value ); ?></span>
-		</div>
+			<?php if ( $href ) : ?>
+				<span class="oc-an-kpi__drill"><?php esc_html_e( 'View vendors', 'owambe-connect-core' ); ?> &rarr;</span>
+			<?php endif; ?>
 		<?php
+		echo $href ? '</a>' : '</div>';
 	}
 
 	/** Vendors offered in the per-vendor drill-down picker (all non-trashed). */
@@ -643,9 +733,9 @@ class OC_Admin_Analytics {
 				<?php $this->kpi_card( __( 'Profile views',      'owambe-connect-core' ), number_format_i18n( $views ),        'visibility', '#2E7D5B' ); ?>
 				<?php $this->kpi_card( __( 'Contact clicks',     'owambe-connect-core' ), number_format_i18n( $total_clicks ), 'phone',      '#6E0F2C' ); ?>
 				<?php $this->kpi_card( __( 'Click-through rate', 'owambe-connect-core' ), $ctr,                                'chart-line', '#A8893D' ); ?>
-				<?php $this->kpi_card( __( 'WhatsApp taps',      'owambe-connect-core' ), number_format_i18n( (int) ( $counts['click_whatsapp'] ?? 0 ) ), 'format-chat', '#2E7D5B' ); ?>
-				<?php $this->kpi_card( __( 'Email clicks',       'owambe-connect-core' ), number_format_i18n( (int) ( $counts['click_email'] ?? 0 ) ),    'email',       '#6E0F2C' ); ?>
-				<?php $this->kpi_card( __( 'Website clicks',     'owambe-connect-core' ), number_format_i18n( (int) ( $counts['click_website'] ?? 0 ) ),  'admin-links', '#A8893D' ); ?>
+				<?php $this->kpi_card( __( 'WhatsApp taps',      'owambe-connect-core' ), number_format_i18n( (int) ( $counts['click_whatsapp'] ?? 0 ) ),  'format-chat', '#2E7D5B' ); ?>
+				<?php $this->kpi_card( __( 'Email clicks',       'owambe-connect-core' ), number_format_i18n( (int) ( $counts['click_email'] ?? 0 ) ),     'email',       '#6E0F2C' ); ?>
+				<?php $this->kpi_card( __( 'Instagram clicks',   'owambe-connect-core' ), number_format_i18n( (int) ( $counts['click_instagram'] ?? 0 ) ), 'instagram',   '#B0354F' ); ?>
 			</div>
 
 			<div class="oc-an-row">
