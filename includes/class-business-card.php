@@ -313,7 +313,7 @@ class OC_Business_Card {
 			} else {
 				$icon = 'node';
 			}
-			$this->draw_contact_icon( $img, $icon, 74, (int) $y - 5, $icon_rgb );
+			$this->draw_contact_icon( $img, $icon, 74, (int) $y - 5, $icon_rgb, $bw );
 
 			$this->text( $img, 16, 106, (int) $y, $ink, $label, $fonts['bold'] );
 			$lx = 106 + $this->text_width( $label, $fonts['bold'], 16 ) + 14;
@@ -393,10 +393,28 @@ class OC_Business_Card {
 	 * (transparent, so the card shows through), rendered at 4x on a buffer and
 	 * downsampled for smooth, anti-aliased edges. Unknown channels get a dot.
 	 */
-	private function draw_contact_icon( $img, $type, $cx, $cy, $color ) {
+	private function draw_contact_icon( $img, $type, $cx, $cy, $color, $outline = false ) {
 		$box = 28;
-		$ss  = 4;
-		$b   = $box * $ss; // buffer size
+		$rgb = is_array( $color ) ? $color : [ 201, 169, 97 ];
+
+		// Prefer a bundled, crisp icon PNG (black glyph on transparent) tinted to
+		// the accent colour; fall back to the GD-drawn glyph if the file is absent.
+		$file = OC_PLUGIN_DIR . 'assets/icons/oc-' . preg_replace( '/[^a-z]/', '', (string) $type ) . '.png';
+		if ( function_exists( 'imagecreatefrompng' ) && function_exists( 'imagefilter' ) && is_file( $file ) ) {
+			$ico = @imagecreatefrompng( $file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			if ( $ico ) {
+				imagealphablending( $ico, false );
+				imagesavealpha( $ico, true );
+				imagefilter( $ico, IMG_FILTER_COLORIZE, (int) $rgb[0], (int) $rgb[1], (int) $rgb[2] ); // black → accent
+				imagealphablending( $img, true );
+				imagecopyresampled( $img, $ico, (int) round( $cx - $box / 2 ), (int) round( $cy - $box / 2 ), 0, 0, $box, $box, imagesx( $ico ), imagesy( $ico ) );
+				imagedestroy( $ico );
+				return;
+			}
+		}
+
+		$ss = 4;
+		$b  = $box * $ss; // buffer size
 
 		$buf = imagecreatetruecolor( $b, $b );
 		imagesavealpha( $buf, true );
@@ -418,16 +436,18 @@ class OC_Business_Card {
 				imagealphablending( $buf, true );
 				break;
 
-			case 'whatsapp': // solid chat bubble + tail, phone handset knocked out
-				imagefilledellipse( $buf, 56, 52, 82, 82, $g );
-				$this->fill_poly( $buf, [ 20, 86, 48, 78, 28, 106 ], $g ); // tail
-				imagealphablending( $buf, false );
-				imagesetthickness( $buf, 13 );
-				imagearc( $buf, 56, 40, 48, 48, 20, 160, $clear );  // curved handle (a downward "smile")
+			case 'whatsapp':
+				// Speech bubble (outline ring + tail) with a solid phone receiver
+				// inside — the familiar WhatsApp glyph, in both variants.
+				imagesetthickness( $buf, 7 );
+				imagearc( $buf, 54, 50, 80, 80, 0, 360, $g );   // bubble ring
 				imagesetthickness( $buf, 1 );
-				imagefilledellipse( $buf, 34, 52, 24, 24, $clear ); // earpiece bulb (left)
-				imagefilledellipse( $buf, 78, 52, 24, 24, $clear ); // mouthpiece bulb (right)
-				imagealphablending( $buf, true );
+				$this->fill_poly( $buf, [ 20, 82, 44, 76, 26, 101 ], $g ); // tail (bottom-left)
+				imagesetthickness( $buf, 12 );
+				imagearc( $buf, 70, 70, 56, 56, 180, 270, $g ); // curved receiver handle
+				imagesetthickness( $buf, 1 );
+				imagefilledellipse( $buf, 70, 42, 22, 22, $g ); // earpiece (top-right)
+				imagefilledellipse( $buf, 42, 70, 22, 22, $g ); // mouthpiece (bottom-left)
 				break;
 
 			case 'instagram': // solid camera body, lens ring + viewfinder knockouts
