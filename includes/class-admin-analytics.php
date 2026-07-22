@@ -356,6 +356,42 @@ class OC_Admin_Analytics {
 				<?php endif; ?>
 			</div>
 
+			<!-- ============== Search & discovery ============== -->
+			<h2 style="font-family:Georgia, serif;color:#1F1B1A;font-size:1.2rem;margin:26px 0 4px"><?php esc_html_e( 'Search & discovery', 'owambe-connect-core' ); ?></h2>
+			<p style="margin:0 0 14px;color:#6B6361;font-size:12px"><?php esc_html_e( 'All-time totals from the vendor directory — not affected by the date filter above.', 'owambe-connect-core' ); ?></p>
+			<div class="oc-an-row">
+				<?php
+				$this->search_bars(
+					__( 'Top searched keywords', 'owambe-connect-core' ),
+					OC_Queries::top_keywords( 12 ),
+					'term',
+					__( 'No keyword searches recorded yet.', 'owambe-connect-core' )
+				);
+				$this->search_bars(
+					__( 'Empty searches (0 results)', 'owambe-connect-core' ),
+					OC_Queries::top_empty_searches( 12 ),
+					'term',
+					__( 'No zero-result searches recorded yet — every search found a vendor.', 'owambe-connect-core' )
+				);
+				?>
+			</div>
+			<div class="oc-an-row">
+				<?php
+				$this->search_bars(
+					__( 'Most searched categories', 'owambe-connect-core' ),
+					OC_Queries::top_searched_categories( 12 ),
+					'name',
+					__( 'No category filters used yet.', 'owambe-connect-core' )
+				);
+				$this->search_bars(
+					__( 'Most clicked categories', 'owambe-connect-core' ),
+					OC_Queries::top_clicked_categories( 12 ),
+					'name',
+					__( 'No category browses recorded yet.', 'owambe-connect-core' )
+				);
+				?>
+			</div>
+
 			<!-- ============== Charts row 2 ============== -->
 			<div class="oc-an-row">
 				<div class="oc-an-card">
@@ -616,6 +652,41 @@ class OC_Admin_Analytics {
 			<?php endif; ?>
 		<?php
 		echo $href ? '</a>' : '</div>';
+	}
+
+	/**
+	 * Render one ranked bar table (a search/category leaderboard) as an analytics
+	 * card. Rows are [ $label_key => string, 'count' => int ], pre-sorted desc.
+	 *
+	 * @param string $title     Card heading.
+	 * @param array  $rows      Display rows from OC_Queries::top_* helpers.
+	 * @param string $label_key Row key holding the label ('term' or 'name').
+	 * @param string $empty_msg Shown when there are no rows yet.
+	 */
+	private function search_bars( $title, array $rows, $label_key, $empty_msg ) {
+		?>
+		<div class="oc-an-card">
+			<h3><?php echo esc_html( $title ); ?></h3>
+			<?php if ( ! empty( $rows ) ) : ?>
+				<table class="oc-an-bars">
+					<?php
+					$max = max( array_map( static function ( $r ) { return (int) $r['count']; }, $rows ) ) ?: 1;
+					foreach ( $rows as $r ) :
+						$count = (int) $r['count'];
+						$pct   = round( ( $count / $max ) * 100 );
+						?>
+						<tr>
+							<td class="oc-an-bars__label"><?php echo esc_html( (string) ( $r[ $label_key ] ?? '' ) ); ?></td>
+							<td class="oc-an-bars__bar"><span style="width:<?php echo esc_attr( $pct ); ?>%"></span></td>
+							<td class="oc-an-bars__val"><?php echo esc_html( number_format_i18n( $count ) ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+				</table>
+			<?php else : ?>
+				<p class="oc-an-empty"><?php echo esc_html( $empty_msg ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/** Vendors offered in the per-vendor drill-down picker (all non-trashed). */
