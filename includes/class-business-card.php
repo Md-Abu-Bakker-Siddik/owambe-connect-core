@@ -165,24 +165,51 @@ class OC_Business_Card {
 		$tx = 252; $tw = 690 - $tx;
 		$terms    = get_the_terms( $post_id, OC_TAX );
 		$category = ( $terms && ! is_wp_error( $terms ) ) ? (string) reset( $terms )->name : '';
-		$location = (string) get_post_meta( $post_id, '_oc_location', true );
-		$meta     = implode( ' • ', array_filter( [ $category, $location ] ) );
+		// Location string: multiple regions selected → just "UK"; a single region
+		// → "Region — UK" (e.g. "London — UK"). Falls back to the covered
+		// cities/areas when no England region is set, then to a plain "UK".
+		$as_list = static function ( $raw ) {
+			if ( is_string( $raw ) ) {
+				$raw = ( '' === $raw ) ? [] : explode( ',', $raw );
+			}
+			return array_values( array_filter( array_map( 'trim', (array) $raw ) ) );
+		};
+		$scope = $as_list( get_post_meta( $post_id, '_oc_location_regions', true ) );
+		if ( empty( $scope ) ) {
+			$scope = $as_list( get_post_meta( $post_id, '_oc_location_areas', true ) );
+		}
+		$n = count( $scope );
+		if ( 0 === $n ) {
+			// Nothing specific selected — a full phrase reads better than "UK".
+			$location = 'Nationwide, UK';
+		} elseif ( 1 === $n ) {
+			$location = $scope[0] . ' — UK';
+		} else {
+			// Primary region + "& UK-wide" — kept short so it stays on one line.
+			$location = $scope[0] . ' & UK-wide';
+		}
+		$meta = implode( ' • ', array_filter( [ $category, $location ] ) );
 
 		list( $lines, $ns ) = $this->wrap_fit( $name, $fonts['display'], 46, $tw, 2, 26 );
 		$lh = (int) round( $ns * 1.28 );
 
-		// Address / meta — wrap to up to 2 lines so the FULL address shows and
-		// still stays inside the card (auto-shrinks to fit; only ellipsises if
-		// it genuinely can't fit two lines).
-		$ms         = 20;
-		$meta_lines = [];
+		// Address / meta — ALWAYS a single line. Shrink the font (max 14 → min 11)
+		// so it fits the column without wrapping; ellipsise only in the extreme
+		// case where even 11px overflows.
+		$ms = 14;
 		if ( '' !== $meta ) {
-			list( $meta_lines, $ms ) = $this->wrap_fit( $meta, $fonts['regular'], 20, $tw, 2, 15 );
+			for ( $z = 14; $z >= 11; $z-- ) {
+				$ms = $z;
+				if ( $this->text_width( $meta, $fonts['regular'], $z ) <= $tw ) {
+					break;
+				}
+			}
+			$meta = $this->fit_ellipsis( $meta, $fonts['regular'], $ms, $tw );
 		}
-		$mlh = (int) round( $ms * 1.32 );
-		$mg  = 40; // breathing room between the name and the address
+		$mg     = 34; // breathing room between the name and the address
+		$ul_pad = 16; // clean gap between the address text and its gold underline
 
-		$bh   = count( $lines ) * $lh + ( $meta_lines ? ( $mg + count( $meta_lines ) * $mlh ) : 0 );
+		$bh   = count( $lines ) * $lh + ( '' !== $meta ? ( $mg + $ms + $ul_pad ) : 0 );
 		$top  = $py + (int) round( ( $ps - $bh ) / 2 );
 		if ( $top < 72 ) { $top = 72; }
 		$base = $top + $ns;
@@ -190,13 +217,10 @@ class OC_Business_Card {
 			$this->text( $img, $ns, $tx, $base, $white, $line, $fonts['display'] );
 			$base += $lh;
 		}
-		if ( $meta_lines ) {
+		if ( '' !== $meta ) {
 			$my = ( $base - $lh ) + $mg;
-			foreach ( $meta_lines as $mline ) {
-				$this->text( $img, $ms, $tx, $my, $goldlt, $mline, $fonts['regular'] );
-				$my += $mlh;
-			}
-			imagefilledrectangle( $img, $tx, $my - $mlh + 14, $tx + 90, $my - $mlh + 15, $gold ); // gold accent under the address
+			$this->text( $img, $ms, $tx, $my, $goldlt, $meta, $fonts['regular'] );
+			imagefilledrectangle( $img, $tx, $my + $ul_pad, $tx + 90, $my + $ul_pad + 1, $gold ); // underline, clear of the text
 		}
 
 		// ------------------------------------------------ Contact rows.
