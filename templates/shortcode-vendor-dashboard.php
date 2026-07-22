@@ -1202,7 +1202,6 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 	// root when both render on one page (tabs would die).
 	var root      = document.getElementById('oc-vendor-dashboard');
 	if (!root) { return; }
-	if (!root) return;
 	var menuBtns  = root.querySelectorAll('[data-oc-tab]');
 	var panels    = root.querySelectorAll('[data-oc-panel]');
 	var jumps     = root.querySelectorAll('[data-oc-tab-jump]');
@@ -1633,10 +1632,19 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 		// Track the last mousedown'd submit button so we can read data-next-tab
 		// even in browsers that don't support ev.submitter (Safari <15.4).
 		var lastClickedSubmit = null;
-		listingForm.addEventListener('mousedown', function (e) {
+		var rememberSubmit = function (e) {
 			var b = e.target.closest('button[type="submit"]');
 			if (b && listingForm.contains(b)) lastClickedSubmit = b;
+		};
+		listingForm.addEventListener('mousedown', rememberSubmit, true);
+		// Keyboard fallback — Safari < 15.4 has no ev.submitter, so a keyboard
+		// user activating "Save & continue" with Enter/Space (or just focusing
+		// it and pressing Enter) would otherwise lose its data-next-tab. Track
+		// the submit button they activate by key and the one they focus.
+		listingForm.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') rememberSubmit(e);
 		}, true);
+		listingForm.addEventListener('focusin', rememberSubmit, true);
 
 		// Tier-based description strings for the completion block (mirrors PHP).
 		var cmpMessages = [
@@ -1760,6 +1768,20 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 			fetch(ajaxUrl, { method: 'POST', body: fd, credentials: 'same-origin' })
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
+					// First-ever save just materialised the vendor's draft post. The
+					// status card and the "Submit for review" form are server-rendered
+					// and only exist once the post does, so refreshing them in place
+					// isn't possible — do ONE reload here. Carry the success toast and
+					// target tab through the URL so the reloaded page shows them, and
+					// keep the "Saving…" button state so there's no flash before reload.
+					if (data && data.success && data.data && data.data.created) {
+						var u = new URL(window.location.href);
+						u.searchParams.set('oc_notice', data.data.notice || <?php echo wp_json_encode( __( 'Saved!', 'owambe-connect-core' ) ); ?>);
+						u.searchParams.set('tab', nextTab || currentTab);
+						u.hash = '';
+						window.location.href = u.toString();
+						return;
+					}
 					savingBtns.forEach(function (b) {
 						b.disabled = false;
 						if (b._origLabel) b.textContent = b._origLabel;

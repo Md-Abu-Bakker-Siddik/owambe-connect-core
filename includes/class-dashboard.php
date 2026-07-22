@@ -168,6 +168,7 @@ class OC_Dashboard {
 		wp_send_json_success( [
 			'notice'     => $r['notice'],
 			'post_id'    => $r['post_id'],
+			'created'    => ! empty( $r['created'] ),
 			'completion' => oc_profile_completion( $r['post_id'] ),
 		] );
 	}
@@ -234,6 +235,7 @@ class OC_Dashboard {
 		// handler can proceed as if it had always existed. ──
 		$post_id = $dbg['post_id_in_post'];
 		$post    = $post_id ? get_post( $post_id ) : null;
+		$created = false; // true only when THIS save materialises a brand-new listing.
 
 		if ( ! $post || OC_CPT !== $post->post_type ) {
 			// Maybe the user already has a post but the form didn't pass the
@@ -300,6 +302,7 @@ class OC_Dashboard {
 
 				$post    = get_post( $new_id );
 				$post_id = (int) $new_id;
+				$created = true;
 			}
 
 			// Make the rest of the handler see this resolved post.
@@ -577,6 +580,7 @@ class OC_Dashboard {
 			'notice'        => __( 'Listing updated.', 'owambe-connect-core' ),
 			'login_redirect' => false,
 			'post_id'       => $post_id,
+			'created'       => $created,
 		];
 	}
 
