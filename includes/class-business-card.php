@@ -66,8 +66,17 @@ class OC_Business_Card {
 			wp_die( esc_html__( 'Image functions unavailable on this server.', 'owambe-connect-core' ) );
 		}
 
-		$img  = $this->render( $post->ID );
+		// Black-&-white variant via ?variant=bw (or ?bw=1).
+		$variant = 'color';
+		if ( ( isset( $_GET['variant'] ) && 'bw' === sanitize_key( wp_unslash( $_GET['variant'] ) ) ) || ! empty( $_GET['bw'] ) ) {
+			$variant = 'bw';
+		}
+
+		$img  = $this->render( $post->ID, $variant );
 		$slug = sanitize_file_name( $post->post_name ? $post->post_name : 'vendor-' . $post->ID );
+		if ( 'bw' === $variant ) {
+			$slug .= '-bw';
+		}
 
 		if ( 'pdf' === $format ) {
 			$this->output_pdf( $img, $slug );
@@ -87,37 +96,65 @@ class OC_Business_Card {
 	 * faint concentric halo top-right, and a hairline column divider — a
 	 * gold-framed logo plate, light typography, and a gold-framed QR panel.
 	 *
-	 * @param int $post_id Vendor post ID.
+	 * @param int    $post_id Vendor post ID.
+	 * @param string $variant 'color' (default gold-on-burgundy) or 'bw' (clean
+	 *                        white background, black text, gray accents).
 	 * @return GdImage
 	 */
-	public function render( $post_id ) {
+	public function render( $post_id, $variant = 'color' ) {
 		$img = imagecreatetruecolor( self::W, self::H );
 		imagealphablending( $img, true );
 
-		$white  = imagecolorallocate( $img, 255, 255, 255 );
-		$gold   = imagecolorallocate( $img, 201, 169, 97 );  // #C9A961
-		$goldlt = imagecolorallocate( $img, 226, 199, 143 ); // brighter gold
-		$cream  = imagecolorallocate( $img, 235, 224, 205 );
-		$rose   = imagecolorallocate( $img, 205, 170, 178 ); // dusty rose sub-text
-		$gray   = imagecolorallocate( $img, 150, 150, 150 );
-		$burg   = imagecolorallocate( $img, 128, 0, 32 );    // #800020 (monogram on the white plate)
+		// ── Palette ──────────────────────────────────────────────────────
+		// One layout, two skins: the default gold-on-burgundy, and a clean
+		// black-&-white variant (white background, black text, gray accents).
+		$bw = ( 'bw' === $variant );
 
-		// Deep vertical burgundy gradient (top #800020 → near-black burgundy).
-		for ( $yy = 0; $yy < self::H; $yy++ ) {
-			$t = $yy / ( self::H - 1 );
-			$r = (int) round( 122 + ( 30 - 122 ) * $t );
-			$b = (int) round( 30 + ( 12 - 30 ) * $t );
-			imageline( $img, 0, $yy, self::W - 1, $yy, imagecolorallocate( $img, $r, 0, $b ) );
+		$white = imagecolorallocate( $img, 255, 255, 255 ); // plate + QR panel fill (both variants)
+		$gray  = imagecolorallocate( $img, 150, 150, 150 ); // QR placeholder text
+
+		if ( $bw ) {
+			$gold     = imagecolorallocate( $img, 112, 112, 112 ); // accent → mid gray
+			$goldlt   = imagecolorallocate( $img, 45, 45, 45 );    // address + vendor number → dark
+			$cream    = imagecolorallocate( $img, 96, 96, 96 );    // secondary text → gray
+			$rose     = imagecolorallocate( $img, 132, 132, 132 ); // muted caption
+			$burg     = imagecolorallocate( $img, 26, 26, 26 );    // monogram → near-black
+			$ink      = imagecolorallocate( $img, 26, 26, 26 );    // primary text → near-black
+			$icon_rgb = [ 55, 55, 55 ];
+			$halo     = imagecolorallocatealpha( $img, 120, 120, 120, 120 );
+			$divc     = imagecolorallocatealpha( $img, 120, 120, 120, 98 );
+		} else {
+			$gold     = imagecolorallocate( $img, 201, 169, 97 );  // #C9A961
+			$goldlt   = imagecolorallocate( $img, 226, 199, 143 ); // brighter gold
+			$cream    = imagecolorallocate( $img, 235, 224, 205 );
+			$rose     = imagecolorallocate( $img, 205, 170, 178 ); // dusty rose sub-text
+			$burg     = imagecolorallocate( $img, 128, 0, 32 );    // #800020 monogram
+			$ink      = $white;                                    // primary text is white on burgundy
+			$icon_rgb = [ 201, 169, 97 ];
+			$halo     = imagecolorallocatealpha( $img, 201, 169, 97, 114 );
+			$divc     = imagecolorallocatealpha( $img, 201, 169, 97, 82 );
 		}
 
-		// Faint concentric gold halo, top-right.
-		$halo = imagecolorallocatealpha( $img, 201, 169, 97, 114 );
+		// ── Background ───────────────────────────────────────────────────
+		if ( $bw ) {
+			imagefilledrectangle( $img, 0, 0, self::W - 1, self::H - 1, $white );
+		} else {
+			// Deep vertical burgundy gradient (top #800020 → near-black burgundy).
+			for ( $yy = 0; $yy < self::H; $yy++ ) {
+				$t = $yy / ( self::H - 1 );
+				$r = (int) round( 122 + ( 30 - 122 ) * $t );
+				$b = (int) round( 30 + ( 12 - 30 ) * $t );
+				imageline( $img, 0, $yy, self::W - 1, $yy, imagecolorallocate( $img, $r, 0, $b ) );
+			}
+		}
+
+		// Faint concentric halo, top-right.
 		for ( $i = 0; $i < 3; $i++ ) {
 			$d = 300 + $i * 130;
 			imageellipse( $img, 1015, 24, $d, $d, $halo );
 		}
 
-		// Gold corner brackets (four L-shaped marks).
+		// Corner brackets (four L-shaped marks).
 		$bk = 26; $ln = 46; $tk = 3;
 		imagefilledrectangle( $img, $bk, $bk, $bk + $ln, $bk + $tk - 1, $gold );
 		imagefilledrectangle( $img, $bk, $bk, $bk + $tk - 1, $bk + $ln, $gold );
@@ -129,7 +166,6 @@ class OC_Business_Card {
 		imagefilledrectangle( $img, self::W - $bk - $tk + 1, self::H - $bk - $ln, self::W - $bk, self::H - $bk, $gold );
 
 		// Hairline column divider.
-		$divc = imagecolorallocatealpha( $img, 201, 169, 97, 82 );
 		imagefilledrectangle( $img, 706, 100, 707, 500, $divc );
 
 		$fonts = $this->fonts();
@@ -154,6 +190,11 @@ class OC_Business_Card {
 			imagefilledrectangle( $flat, 0, 0, $sw, $sh, imagecolorallocate( $flat, 255, 255, 255 ) );
 			imagecopy( $flat, $logo, 0, 0, 0, 0, $sw, $sh );
 			imagedestroy( $logo );
+
+			// B&W variant → desaturate the logo so the whole card is monochrome.
+			if ( $bw && function_exists( 'imagefilter' ) ) {
+				imagefilter( $flat, IMG_FILTER_GRAYSCALE );
+			}
 
 			// Contain-fit: preserve aspect ratio and pad evenly — the logo is
 			// always fully visible (never cropped) and never stretched. Padding
@@ -230,7 +271,7 @@ class OC_Business_Card {
 		if ( $top < 72 ) { $top = 72; }
 		$base = $top + $ns;
 		foreach ( $lines as $line ) {
-			$this->text( $img, $ns, $tx, $base, $white, $line, $fonts['display'] );
+			$this->text( $img, $ns, $tx, $base, $ink, $line, $fonts['display'] );
 			$base += $lh;
 		}
 		if ( '' !== $meta ) {
@@ -272,9 +313,9 @@ class OC_Business_Card {
 			} else {
 				$icon = 'node';
 			}
-			$this->draw_contact_icon( $img, $icon, 74, (int) $y - 5, $gold );
+			$this->draw_contact_icon( $img, $icon, 74, (int) $y - 5, $icon_rgb );
 
-			$this->text( $img, 16, 106, (int) $y, $white, $label, $fonts['bold'] );
+			$this->text( $img, 16, 106, (int) $y, $ink, $label, $fonts['bold'] );
 			$lx = 106 + $this->text_width( $label, $fonts['bold'], 16 ) + 14;
 			$this->text( $img, 15, (int) $lx, (int) $y, $cream, $this->fit_ellipsis( $value, $fonts['regular'], 15, max( 120, 690 - (int) $lx ) ), $fonts['regular'] );
 			$y += 50;
@@ -363,7 +404,8 @@ class OC_Business_Card {
 		$clear = imagecolorallocatealpha( $buf, 0, 0, 0, 127 );
 		imagefilledrectangle( $buf, 0, 0, $b, $b, $clear ); // fully transparent
 		imagealphablending( $buf, true );
-		$g = imagecolorallocate( $buf, 201, 169, 97 ); // gold
+		$rgb = is_array( $color ) ? $color : [ 201, 169, 97 ];
+		$g   = imagecolorallocate( $buf, (int) $rgb[0], (int) $rgb[1], (int) $rgb[2] ); // icon colour
 
 		switch ( $type ) {
 			case 'email': // solid envelope with a knocked-out flap crease

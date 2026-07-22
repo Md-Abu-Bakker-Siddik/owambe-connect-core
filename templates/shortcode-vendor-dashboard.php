@@ -356,7 +356,11 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 						</a>
 						<a class="oc-vd__menu-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png' ), 'oc_business_card' ) ); ?>">
 							<span class="dashicons dashicons-id-alt"></span>
-							<span><?php esc_html_e( 'Business card (PNG)', 'owambe-connect-core' ); ?></span>
+							<span><?php esc_html_e( 'Business card (Color PNG)', 'owambe-connect-core' ); ?></span>
+						</a>
+						<a class="oc-vd__menu-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png&variant=bw' ), 'oc_business_card' ) ); ?>">
+							<span class="dashicons dashicons-id-alt"></span>
+							<span><?php esc_html_e( 'Business card (B&W PNG)', 'owambe-connect-core' ); ?></span>
 						</a>
 						<a class="oc-vd__menu-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=pdf' ), 'oc_business_card' ) ); ?>">
 							<span class="dashicons dashicons-pdf"></span>
