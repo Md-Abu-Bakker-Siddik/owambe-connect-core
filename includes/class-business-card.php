@@ -142,15 +142,31 @@ class OC_Business_Card {
 
 		$logo = $this->load_logo( $post_id );
 		if ( $logo ) {
-			$sw = imagesx( $logo ); $sh = imagesy( $logo );
-			$inner = $ps - 34;
-			$scale = min( $inner / max( 1, $sw ), $inner / max( 1, $sh ) );
-			$dw = max( 1, (int) round( $sw * $scale ) );
-			$dh = max( 1, (int) round( $sh * $scale ) );
-			$dx = $px + (int) round( ( $ps - $dw ) / 2 );
-			$dy = $py + (int) round( ( $ps - $dh ) / 2 );
-			imagecopyresampled( $img, $logo, $dx, $dy, 0, 0, $dw, $dh, $sw, $sh );
+			$sw = imagesx( $logo );
+			$sh = imagesy( $logo );
+
+			// Flatten onto a white canvas at source resolution first. This
+			// converts palette/transparent PNGs to truecolor and matches the
+			// white plate, so the resample stays crisp with no dark fringe/halo
+			// around transparent-logo edges.
+			$flat = imagecreatetruecolor( $sw, $sh );
+			imagealphablending( $flat, true );
+			imagefilledrectangle( $flat, 0, 0, $sw, $sh, imagecolorallocate( $flat, 255, 255, 255 ) );
+			imagecopy( $flat, $logo, 0, 0, 0, 0, $sw, $sh );
 			imagedestroy( $logo );
+
+			// Contain-fit: preserve aspect ratio and pad evenly — the logo is
+			// always fully visible (never cropped) and never stretched. Padding
+			// is modest so it fills the plate cleanly without touching the edge.
+			$pad   = 14;
+			$inner = max( 1, $ps - $pad * 2 );
+			$scale = min( $inner / max( 1, $sw ), $inner / max( 1, $sh ) );
+			$dw    = max( 1, (int) round( $sw * $scale ) );
+			$dh    = max( 1, (int) round( $sh * $scale ) );
+			$dx    = $px + (int) round( ( $ps - $dw ) / 2 );
+			$dy    = $py + (int) round( ( $ps - $dh ) / 2 );
+			imagecopyresampled( $img, $flat, $dx, $dy, 0, 0, $dw, $dh, $sw, $sh );
+			imagedestroy( $flat );
 		} else {
 			$mono = $this->monogram( $name );
 			if ( '' !== $mono ) {
