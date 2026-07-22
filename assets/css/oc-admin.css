@@ -1,0 +1,21 @@
+/* Owambe Connect — admin styles */
+
+.column-oc_logo { width: 70px; }
+.column-oc_logo img { border-radius: 50%; }
+.column-oc_status { width: 130px; }
+
+.oc-approve { font-weight: 600 !important; color: #1e7e3c !important; }
+.oc-reject  { font-weight: 600 !important; color: #b32d2e !important; }
+
+#oc_actions .button-primary {
+	background: #6E0F2C;
+	border-color: #6E0F2C;
+	color: #fff;
+}
+#oc_actions .button-primary:hover {
+	background: #4A0A1E;
+	border-color: #4A0A1E;
+}
+
+#oc_profile .form-table th { width: 200px; }
+#oc_profile textarea { min-height: 80px; }

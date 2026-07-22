@@ -1,0 +1,275 @@
+<?php
+/**
+ * Client accounts: the oc_client role, client-page routing guards, and the
+ * saved-vendors / recently-contacted storage that powers the client dashboard.
+ *
+ * Clients are event planners (not vendors). They sign in with Google
+ * (OC_Google_Auth), save vendors they like, and see who they recently
+ * contacted. This class owns:
+ *
+ *  - the OC_CLIENT_ROLE role (read-only, idempotent init registration)
+ *  - template_redirect gating for /client-dashboard/ and /client-login/,
+ *    plus the guard that keeps clients off the vendor dashboard (its
+ *    create-on-save flow would silently promote them to vendors)
+ *  - user-meta APIs: '_oc_saved_vendors' (int[]) and '_oc_recent_contacts'
+ *    (array of [vendor_id, channel, ts], newest first, capped at 20)
+ *  - the wp_ajax_oc_toggle_saved endpoint behind the heart buttons
+ *
+ * @package OwambeConnect
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+class OC_Client {
+
+	/** AJAX action behind the save/heart buttons (logged-in only — no nopriv). */
+	const ACTION_TOGGLE_SAVED = 'oc_toggle_saved';
+
+	/** Nonce action; JS sends the value as POST field 'nonce' (OC_DATA.saved_nonce). */
+	const NONCE_SAVED = 'oc_saved_nonce';
+
+	/** User meta: array of saved vendor post IDs (newest first). */
+	const META_SAVED = '_oc_saved_vendors';
+
+	/** User meta: array of [vendor_id, channel, ts] rows (newest first). */
+	const META_CONTACTS = '_oc_recent_contacts';
+
+	/** Max recent-contact rows kept per user. */
+	const CONTACTS_CAP = 20;
+
+	/** Window inside which a repeat vendor+channel contact is not re-recorded. */
+	const CONTACT_DEDUPE_WINDOW = HOUR_IN_SECONDS;
+
+	public function register() {
+		add_action( 'init', [ __CLASS__, 'register_role' ] );
+
+		// Client-page routing (must run before headers are sent). Mirrors the
+		// vendor guards in OC_Shortcodes::redirect_logged_out_from_dashboard().
+		add_action( 'template_redirect', [ $this, 'gate_client_pages' ] );
+
+		add_action( 'wp_ajax_' . self::ACTION_TOGGLE_SAVED, [ __CLASS__, 'ajax_toggle_saved' ] );
+	}
+
+	/**
+	 * Idempotent role registration, cloned from OC_CPT_Manager::register_role().
+	 *
+	 * Clients only ever read the site and use frontend features driven by
+	 * user meta — 'read' is the whole capability set. Administrators are
+	 * deliberately left untouched: their access flows from manage_options,
+	 * and there is no client cap that needs mirroring onto them (unlike
+	 * OC_CAP_EDIT_OWN for vendors).
+	 */
+	public static function register_role() {
+		if ( ! get_role( OC_CLIENT_ROLE ) ) {
+			add_role( OC_CLIENT_ROLE, __( 'Client', 'owambe-connect-core' ), [
+				'read' => true,
+			] );
+		}
+	}
+
+	/** True when the user's roles include OC_CLIENT_ROLE. Defaults to the current user. */
+	public static function is_client( $user_id = 0 ) {
+		$user = $user_id ? get_user_by( 'id', (int) $user_id ) : wp_get_current_user();
+		if ( ! $user || ! $user->exists() ) {
+			return false;
+		}
+		return in_array( OC_CLIENT_ROLE, (array) $user->roles, true );
+	}
+
+	/** Canonical client dashboard URL. */
+	public static function dashboard_url() {
+		return oc_page_url( 'client-dashboard' );
+	}
+
+	/**
+	 * template_redirect router for the client pages.
+	 *
+	 * 1. Logged-out visitor on /client-dashboard/ → /client-login/?redirect_to=…
+	 * 2. Logged-in client on /client-login/ → /client-dashboard/
+	 * 3. Logged-in client WITHOUT a vendor listing on /vendor-dashboard/ →
+	 *    /client-dashboard/. This one is load-bearing: the vendor dashboard's
+	 *    create-on-save flow (OC_Dashboard::run_save) silently promotes any
+	 *    logged-in user who saves the form into a vendor. Clients must never
+	 *    reach that form by accident.
+	 */
+	public function gate_client_pages() {
+		if ( is_admin() || ! is_page() ) {
+			return;
+		}
+		$current_id = (int) get_queried_object_id();
+		if ( ! $current_id ) {
+			return;
+		}
+
+		$dashboard_page = get_page_by_path( 'client-dashboard' );
+		$dashboard_id   = $dashboard_page ? (int) $dashboard_page->ID : 0;
+
+		// 1. Client dashboard requires login — bounce with a return path.
+		if ( ! is_user_logged_in() ) {
+			if ( $dashboard_id && $current_id === $dashboard_id ) {
+				wp_safe_redirect( add_query_arg(
+					'redirect_to',
+					rawurlencode( self::dashboard_url() ),
+					oc_page_url( 'client-login' )
+				) );
+				exit;
+			}
+			return; // Nothing else applies to logged-out visitors.
+		}
+
+		// 2. Signed-in clients don't need the login page again.
+		if ( self::is_client() ) {
+			$login_page = get_page_by_path( 'client-login' );
+			if ( $login_page && $current_id === (int) $login_page->ID ) {
+				wp_safe_redirect( self::dashboard_url() );
+				exit;
+			}
+		}
+
+		// 3. Keep vendor-less clients off the vendor dashboard (create-on-save
+		// auto-promotion guard). Admins keep manage_options-based access and
+		// are never rerouted, even if they also carry the client role.
+		if ( self::is_client() && ! current_user_can( 'manage_options' ) ) {
+			$vendor_dashboard = get_page_by_path( 'vendor-dashboard' );
+			if ( $vendor_dashboard && $current_id === (int) $vendor_dashboard->ID && ! oc_get_current_vendor_post() ) {
+				wp_safe_redirect( self::dashboard_url() );
+				exit;
+			}
+		}
+	}
+
+	/* ─────────────────────────── Saved vendors ─────────────────────────── */
+
+	/**
+	 * Saved vendor IDs for a user, newest first.
+	 *
+	 * @return int[]
+	 */
+	public static function saved_vendors( $user_id ) {
+		$saved = get_user_meta( (int) $user_id, self::META_SAVED, true );
+		if ( ! is_array( $saved ) ) {
+			return [];
+		}
+		return array_values( array_unique( array_filter( array_map( 'intval', $saved ) ) ) );
+	}
+
+	/** Hard cap on a client's saved list — bounds meta size and dashboard render. */
+	const SAVED_CAP = 200;
+
+	/**
+	 * Toggle a vendor in the user's saved list.
+	 *
+	 * @return bool|string  true = now saved, false = now unsaved, 'full' = at the
+	 *                       cap and this vendor wasn't already saved (not added).
+	 */
+	public static function toggle_saved( $user_id, $vendor_id ) {
+		$user_id   = (int) $user_id;
+		$vendor_id = (int) $vendor_id;
+		$saved     = self::saved_vendors( $user_id );
+
+		$index = array_search( $vendor_id, $saved, true );
+		if ( false !== $index ) {
+			unset( $saved[ $index ] );
+			$now_saved = false;
+		} else {
+			// Cap the list so a scripted account can't grow unbounded user meta
+			// (and a pathological dashboard render). Reject with an explicit
+			// signal rather than silently dropping the oldest save.
+			if ( count( $saved ) >= self::SAVED_CAP ) {
+				return 'full';
+			}
+			array_unshift( $saved, $vendor_id );
+			$now_saved = true;
+		}
+
+		update_user_meta( $user_id, self::META_SAVED, array_values( $saved ) );
+		return $now_saved;
+	}
+
+	/**
+	 * AJAX: toggle a saved vendor (heart button). Logged-in only — the button
+	 * for logged-out visitors links to client-login instead of firing this.
+	 *
+	 * POST: nonce (from OC_DATA.saved_nonce, action 'oc_saved_nonce'), vendor_id.
+	 * Success payload: { saved: bool } — the new state.
+	 */
+	public static function ajax_toggle_saved() {
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, self::NONCE_SAVED ) ) {
+			wp_send_json_error( [ 'message' => __( 'Your session expired. Please refresh the page and try again.', 'owambe-connect-core' ) ], 403 );
+		}
+		if ( ! is_user_logged_in() ) {
+			wp_send_json_error( [ 'message' => __( 'Please sign in to save vendors.', 'owambe-connect-core' ) ], 403 );
+		}
+
+		$vendor_id = isset( $_POST['vendor_id'] ) ? (int) $_POST['vendor_id'] : 0;
+		$vendor    = $vendor_id ? get_post( $vendor_id ) : null;
+		if ( ! $vendor || OC_CPT !== $vendor->post_type || OC_STATUS_APPROVED !== $vendor->post_status ) {
+			wp_send_json_error( [ 'message' => __( 'Vendor not found.', 'owambe-connect-core' ) ] );
+		}
+
+		$saved = self::toggle_saved( get_current_user_id(), $vendor_id );
+		if ( 'full' === $saved ) {
+			wp_send_json_error( [ 'message' => sprintf( __( 'Your saved list is full (%d). Remove a few before adding more.', 'owambe-connect-core' ), self::SAVED_CAP ) ] );
+		}
+		wp_send_json_success( [ 'saved' => (bool) $saved ] );
+	}
+
+	/* ────────────────────────── Recent contacts ────────────────────────── */
+
+	/**
+	 * Recently contacted vendors, newest first, capped at CONTACTS_CAP.
+	 *
+	 * @return array[] Rows of [ 'vendor_id' => int, 'channel' => string, 'ts' => int ].
+	 */
+	public static function recent_contacts( $user_id ) {
+		$rows = get_user_meta( (int) $user_id, self::META_CONTACTS, true );
+		if ( ! is_array( $rows ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) || empty( $row['vendor_id'] ) ) {
+				continue;
+			}
+			$out[] = [
+				'vendor_id' => (int) $row['vendor_id'],
+				'channel'   => isset( $row['channel'] ) ? (string) $row['channel'] : '',
+				'ts'        => isset( $row['ts'] ) ? (int) $row['ts'] : 0,
+			];
+		}
+		return array_slice( $out, 0, self::CONTACTS_CAP );
+	}
+
+	/**
+	 * Record a contact click (fed by the W1 tracking beacon for logged-in
+	 * clients). Repeat clicks on the same vendor + channel within an hour are
+	 * ignored — a burst of WhatsApp taps is one contact, not five.
+	 */
+	public static function push_recent_contact( $user_id, $vendor_id, $channel ) {
+		$user_id   = (int) $user_id;
+		$vendor_id = (int) $vendor_id;
+		$channel   = sanitize_key( $channel );
+		if ( ! $user_id || ! $vendor_id ) {
+			return;
+		}
+
+		$rows = self::recent_contacts( $user_id );
+		$now  = time();
+
+		foreach ( $rows as $row ) {
+			if ( $row['vendor_id'] === $vendor_id && $row['channel'] === $channel
+				&& ( $now - $row['ts'] ) < self::CONTACT_DEDUPE_WINDOW ) {
+				return; // Duplicate within the window — keep the existing row.
+			}
+		}
+
+		array_unshift( $rows, [
+			'vendor_id' => $vendor_id,
+			'channel'   => $channel,
+			'ts'        => $now,
+		] );
+
+		update_user_meta( $user_id, self::META_CONTACTS, array_slice( $rows, 0, self::CONTACTS_CAP ) );
+	}
+}
