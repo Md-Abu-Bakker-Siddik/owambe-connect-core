@@ -119,6 +119,7 @@
 		}
 
 		initProfileNav();
+		initSmoothAnchors();
 	}
 
 	/* ── Global post-submit toast renderer (moved from the FAB template) ──
@@ -180,6 +181,35 @@
 	 * sticky/fixed container (the desktop sidebar Contact card) are excluded so
 	 * the always-pinned sidebar can't hijack the highlight. Pairs with the
 	 * template header-offset script, which sets the nav's sticky top. */
+	/* ── Smooth in-page scrolling for tab links & section anchors ──
+	 * Within vendor profiles (.oc-vp) and dashboards (.oc-vd/.oc-cd), same-page hash
+	 * links scroll smoothly to their target instead of jumping. scrollIntoView honours
+	 * each target's scroll-margin-top, so sections land below the sticky header/nav.
+	 * Respects prefers-reduced-motion; cross-page links are left untouched. */
+	function initSmoothAnchors() {
+		var SCOPES = '.oc-vp, .oc-vd, .oc-cd';
+		document.addEventListener('click', function (e) {
+			var a = e.target && e.target.closest ? e.target.closest('a[href*="#"]') : null;
+			if (!a) return;
+			var hash = a.hash;
+			if (!hash || hash === '#') return;
+			if (!a.closest(SCOPES)) return;
+			// Same-page only — let links to other pages navigate normally.
+			var here = window.location.pathname;
+			var path = a.pathname || here;
+			if (path !== here && path + '/' !== here && path !== here + '/') return;
+			var target = document.getElementById(decodeURIComponent(hash.slice(1)));
+			if (!target) return;
+			e.preventDefault();
+			var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+			// Move focus for keyboard / assistive tech, without a second jump.
+			if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+			target.focus({ preventScroll: true });
+			// Reflect the section in the URL without a native jump.
+			if (window.history && history.replaceState) history.replaceState(null, '', hash);
+		});
+	}
 	function initProfileNav() {
 		var nav = document.querySelector('.oc-vp-nav');
 		if (!nav || !('IntersectionObserver' in window)) return;
