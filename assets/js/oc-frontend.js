@@ -117,6 +117,8 @@
 			try { document.execCommand('copy'); } catch (err) {}
 			ta.remove();
 		}
+
+		initProfileNav();
 	}
 
 	/* ── Global post-submit toast renderer (moved from the FAB template) ──
@@ -173,6 +175,84 @@
 		if (error)  ocToast(decodeURIComponent(error),  'error');
 	}
 
+	/* ── Vendor profile: IntersectionObserver scroll-spy for the section nav ──
+	 * Highlights the pill of the section currently in view. Sections inside a
+	 * sticky/fixed container (the desktop sidebar Contact card) are excluded so
+	 * the always-pinned sidebar can't hijack the highlight. Pairs with the
+	 * template header-offset script, which sets the nav's sticky top. */
+	function initProfileNav() {
+		var nav = document.querySelector('.oc-vp-nav');
+		if (!nav || !('IntersectionObserver' in window)) return;
+		var items = Array.prototype.slice.call(nav.querySelectorAll('.oc-vp-nav__link')).map(function (a) {
+			var id = (a.getAttribute('href') || '').replace(/^#/, '');
+			return { link: a, sec: id && document.getElementById(id) };
+		}).filter(function (o) { return o.sec; });
+		if (!items.length) return;
+
+		var setActive = function (link) {
+			items.forEach(function (o) { o.link.classList.toggle('is-active', o.link === link); });
+		};
+		// A section inside a sticky/fixed ancestor (e.g. the desktop sidebar) stays in
+		// view regardless of scroll, so it must not drive the highlight.
+		var isPinnedChain = function (el) {
+			for (var n = el; n && !(n.classList && n.classList.contains('oc-vp')); n = n.parentElement) {
+				var pos = getComputedStyle(n).position;
+				if (pos === 'sticky' || pos === 'fixed') return true;
+			}
+			return false;
+		};
+		var inFlowPool = function () {
+			var pool = items.filter(function (o) { return !isPinnedChain(o.sec); });
+			return pool.length ? pool : items;
+		};
+		// Trigger line = pinned nav bottom (header offset from the template + nav height).
+		var triggerOffset = function () {
+			var top = parseInt(nav.style.top, 10);
+			if (isNaN(top)) top = Math.round(nav.getBoundingClientRect().top);
+			return Math.max(0, top) + Math.round(nav.getBoundingClientRect().height);
+		};
+
+		var visible = {}, observer = null;
+		var pick = function () {
+			var best = null, bestTop = Infinity;
+			items.forEach(function (o) {
+				if (visible[o.sec.id]) {
+					var top = o.sec.getBoundingClientRect().top;
+					if (top < bestTop) { bestTop = top; best = o; }
+				}
+			});
+			if (best) setActive(best.link);
+		};
+		var build = function () {
+			if (observer) observer.disconnect();
+			visible = {};
+			observer = new IntersectionObserver(function (entries) {
+				entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+				pick();
+			}, { rootMargin: '-' + (triggerOffset() + 4) + 'px 0px -55% 0px', threshold: 0 });
+			inFlowPool().forEach(function (o) { observer.observe(o.sec); });
+		};
+		build();
+
+		var raf;
+		window.addEventListener('resize', function () {
+			if (raf) cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(build);
+		}, { passive: true });
+
+		// Bottom-of-page guard: light the last in-flow pill when scrolling can't go further.
+		window.addEventListener('scroll', function () {
+			if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+				var pool = inFlowPool();
+				setActive(pool[pool.length - 1].link);
+			}
+		}, { passive: true });
+
+		// Snappy feedback: highlight immediately on click; the observer refines after scroll.
+		items.forEach(function (o) {
+			o.link.addEventListener('click', function () { setActive(o.link); });
+		});
+	}
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', function () { init(); bootQueryToasts(); });
 	} else {

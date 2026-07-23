@@ -27,7 +27,8 @@ class OC_Assets {
 			'oc-frontend',
 			OC_PLUGIN_URL . 'assets/js/oc-frontend.js',
 			[],
-			OC_VERSION,
+			// filemtime so JS edits cache-bust immediately (OC_VERSION is a fixed constant).
+			(string) ( @filemtime( OC_PLUGIN_DIR . 'assets/js/oc-frontend.js' ) ?: OC_VERSION ),
 			true
 		);
 
