@@ -348,7 +348,8 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 							<span><?php esc_html_e( 'Share My Business', 'owambe-connect-core' ); ?></span>
 							<span class="oc-vd__menu-caret dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>
 						</button>
-						<div class="oc-vd__submenu" id="oc-vd-share" hidden>
+						<div class="oc-vd__submenu" id="oc-vd-share">
+							<div class="oc-vd__submenu-inner">
 						<button type="button" class="oc-vd__menu-link" data-oc-copy-link="<?php echo esc_attr( $share_url ); ?>">
 							<span class="dashicons dashicons-admin-page"></span>
 							<span><?php esc_html_e( 'Copy profile link', 'owambe-connect-core' ); ?></span>
@@ -373,7 +374,8 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 							<span class="dashicons dashicons-pdf"></span>
 							<span><?php esc_html_e( 'Business card (PDF)', 'owambe-connect-core' ); ?></span>
 						</a>
-					</div><?php // .oc-vd__submenu ?>
+					</div><?php // .oc-vd__submenu-inner ?>
+						</div><?php // .oc-vd__submenu ?>
 						<?php endif; ?>
 					<a class="oc-vd__menu-link oc-vd__menu-link--logout" href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>">
 						<span class="dashicons dashicons-exit"></span>
@@ -1289,7 +1291,7 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 		var open  = t.getAttribute('aria-expanded') === 'true';
 		var panel = document.getElementById(t.getAttribute('aria-controls'));
 		t.setAttribute('aria-expanded', open ? 'false' : 'true');
-		if (panel) panel.hidden = open;
+		if (panel) panel.classList.toggle('is-open', !open);
 	});
 
 	// Resolve initial tab: query param wins, then legacy hash, then default.
