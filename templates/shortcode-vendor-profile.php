@@ -321,16 +321,16 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 						<?php foreach ( $cultural as $key ) :
 							$label = $cultural_options[ $key ] ?? $key;
 						?>
-							<span class="oc-vp__cultural-chip oc-vp__cultural-chip--<?php echo esc_attr( $key ); ?>">
+							<a class="oc-vp__cultural-chip oc-vp__cultural-chip--<?php echo esc_attr( $key ); ?>" href="<?php echo esc_url( add_query_arg( 'cultural', $key, $dir_url ) ); ?>" aria-label="<?php /* translators: %s: cultural specialty, e.g. African Events */ echo esc_attr( sprintf( __( 'Browse %s vendors', 'owambe-connect-core' ), $label ) ); ?>">
 								<svg class="oc-vp__cultural-chip-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4L12 2z"/></svg>
 								<?php echo esc_html( $label ); ?>
-							</span>
+							</a>
 						<?php endforeach; ?>
 						<?php if ( 'yes' === $nigerian ) : ?>
-							<span class="oc-vp__cultural-chip oc-vp__cultural-chip--nigerian">
+							<a class="oc-vp__cultural-chip oc-vp__cultural-chip--nigerian" href="<?php echo esc_url( add_query_arg( 'nigerian', '1', $dir_url ) ); ?>" aria-label="<?php esc_attr_e( 'Browse Nigerian events specialists', 'owambe-connect-core' ); ?>">
 								<span aria-hidden="true">🇳🇬</span>
 								<?php esc_html_e( 'Nigerian events specialist', 'owambe-connect-core' ); ?>
-							</span>
+							</a>
 						<?php endif; ?>
 						<?php if ( 'yes' === $reg_biz ) : ?>
 							<span class="oc-vp__cultural-chip oc-vp__cultural-chip--registered">

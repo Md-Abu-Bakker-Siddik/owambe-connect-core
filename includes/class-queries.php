@@ -23,6 +23,8 @@ class OC_Queries {
 			'search'   => '',
 			'location' => '',
 			'city'     => '',
+			'cultural' => '', // cultural-specialty key, e.g. 'african_events'
+			'nigerian' => '', // truthy → only Nigerian-events specialists
 		];
 		$a = wp_parse_args( $args, $defaults );
 
@@ -51,6 +53,23 @@ class OC_Queries {
 				'key'     => '_oc_location',
 				'value'   => sanitize_text_field( $a['city'] ),
 				'compare' => 'LIKE',
+			];
+		}
+		// Cultural specialty — meta stores a serialized array of keys, so a LIKE
+		// on the key string matches vendors who selected it.
+		if ( ! empty( $a['cultural'] ) ) {
+			$meta_query[] = [
+				'key'     => '_oc_cultural_specialties',
+				'value'   => sanitize_key( $a['cultural'] ),
+				'compare' => 'LIKE',
+			];
+		}
+		// Nigerian-events specialists (separate boolean meta).
+		if ( ! empty( $a['nigerian'] ) ) {
+			$meta_query[] = [
+				'key'     => '_oc_nigerian_specialty',
+				'value'   => 'yes',
+				'compare' => '=',
 			];
 		}
 		if ( count( $meta_query ) > 1 ) {

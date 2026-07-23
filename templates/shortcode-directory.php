@@ -12,6 +12,8 @@ $current_cat    = isset( $_GET['cat'] )         ? sanitize_title( $_GET['cat'] )
 $current_search = isset( $_GET['vendor_name'] ) ? sanitize_text_field( wp_unslash( $_GET['vendor_name'] ) ) : '';
 $current_loc    = isset( $_GET['location'] )    ? sanitize_text_field( wp_unslash( $_GET['location'] ) ) : '';
 $current_city   = isset( $_GET['city'] )        ? sanitize_text_field( wp_unslash( $_GET['city'] ) )     : '';
+$current_cultural = isset( $_GET['cultural'] )  ? sanitize_key( wp_unslash( $_GET['cultural'] ) )        : '';
+$current_nigerian = ! empty( $_GET['nigerian'] ) ? '1'                                                   : '';
 $country_labels = function_exists( 'oc_country_options' ) ? oc_country_options() : [];
 $region_labels  = function_exists( 'oc_region_options' )  ? oc_region_options()  : [];
 $action_url     = oc_page_url( 'vendors' );
@@ -154,6 +156,8 @@ $show_filters  = ! isset( $show_filters )  || 'yes' === $show_filters;
 							'vendor_name' => $current_search,
 							'location'    => $current_loc,
 							'city'        => $current_city,
+							'cultural'    => $current_cultural,
+							'nigerian'    => $current_nigerian,
 						] ),
 					] );
 					?>
@@ -161,7 +165,7 @@ $show_filters  = ! isset( $show_filters )  || 'yes' === $show_filters;
 			<?php endif; ?>
 
 		<?php else :
-			$has_filters = ( '' !== $current_cat ) || ( '' !== $current_search ) || ( '' !== $current_loc ) || ( '' !== $current_city );
+			$has_filters = ( '' !== $current_cat ) || ( '' !== $current_search ) || ( '' !== $current_loc ) || ( '' !== $current_city ) || ( '' !== $current_cultural ) || ( '' !== $current_nigerian );
 		?>
 			<div class="oc-empty">
 				<?php if ( $has_filters ) : ?>

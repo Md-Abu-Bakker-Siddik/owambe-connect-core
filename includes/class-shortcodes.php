@@ -347,6 +347,8 @@ class OC_Shortcodes {
 			'search'   => isset( $_GET['vendor_name'] ) ? sanitize_text_field( wp_unslash( $_GET['vendor_name'] ) ) : '',
 			'location' => isset( $_GET['location'] )    ? sanitize_text_field( wp_unslash( $_GET['location'] ) ) : '',
 			'city'     => isset( $_GET['city'] )        ? sanitize_text_field( wp_unslash( $_GET['city'] ) )     : '',
+			'cultural' => isset( $_GET['cultural'] )    ? sanitize_key( wp_unslash( $_GET['cultural'] ) )        : '',
+			'nigerian' => ! empty( $_GET['nigerian'] )  ? '1'                                                    : '',
 			'per_page' => (int) $atts['per_page'],
 		] );
 		return oc_get_template( 'shortcode-directory.php', $atts );
