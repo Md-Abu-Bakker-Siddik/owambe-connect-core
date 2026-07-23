@@ -24,6 +24,17 @@ if ( '' === $redirect_url && ! empty( $_GET['redirect_to'] ) ) {
 }
 
 $login_page_url = oc_page_url( 'vendor-login' );
+
+// "Create account" target on the client tab → the dedicated client-login page in
+// register mode, preserving any redirect round-trip. add_query_arg does not
+// URL-encode, so the redirect value is rawurlencode()'d.
+$client_register_url = add_query_arg(
+	array_merge(
+		$redirect_url ? [ 'redirect_to' => rawurlencode( $redirect_url ) ] : [],
+		[ 'mode' => 'register' ]
+	),
+	oc_page_url( 'client-login' )
+);
 ?>
 <section class="oc-section oc-auth">
 	<div class="oc-container oc-auth__container">
@@ -86,7 +97,8 @@ $login_page_url = oc_page_url( 'vendor-login' );
 					</form>
 				</div>
 
-				<!-- Client panel — Google only (Google sign-ups always become clients) -->
+				<!-- Client panel — Google sign-in + native email/password login and a
+				     link to create an account (for clients without a Google account). -->
 				<div class="oc-auth__panel" data-panel="client" <?php echo 'client' === $active_tab ? '' : 'hidden'; ?>>
 					<div class="oc-auth__client-google">
 						<div class="oc-auth__signin-card">
@@ -130,6 +142,34 @@ if ( $is_configured ) {
 							<p class="oc-auth__signin-foot"><?php esc_html_e( 'Free to join · We never post on your behalf', 'owambe-connect-core' ); ?></p>
 						</div>
 					</div>
+					<div class="oc-auth__divider" aria-hidden="true"><span><?php esc_html_e( 'or use your email', 'owambe-connect-core' ); ?></span></div>
+					<!-- Client panel — native email/password sign-in (alongside Google). -->
+					<form class="oc-form oc-auth__form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="<?php echo esc_attr( OC_Client::ACTION_LOGIN ); ?>" />
+						<?php if ( $redirect_url ) : ?>
+							<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_url ); ?>" />
+						<?php endif; ?>
+						<?php wp_nonce_field( OC_Client::ACTION_LOGIN, 'oc_client_login_nonce' ); ?>
+						<div class="oc-field">
+							<label for="oc-log-client"><?php esc_html_e( 'Email', 'owambe-connect-core' ); ?></label>
+							<input id="oc-log-client" type="email" name="log" required autocomplete="email" />
+						</div>
+						<div class="oc-field">
+							<label for="oc-pwd-client"><?php esc_html_e( 'Password', 'owambe-connect-core' ); ?></label>
+							<input id="oc-pwd-client" type="password" name="pwd" required autocomplete="current-password" />
+						</div>
+						<div class="oc-field oc-field--row">
+							<label class="oc-checkbox"><input type="checkbox" name="rememberme" value="1" /> <span><?php esc_html_e( 'Remember me', 'owambe-connect-core' ); ?></span></label>
+							<a class="oc-link" href="<?php echo esc_url( wp_lostpassword_url( add_query_arg( 'tab', 'client', $login_page_url ) ) ); ?>"><?php esc_html_e( 'Forgot password?', 'owambe-connect-core' ); ?></a>
+						</div>
+						<div class="oc-form__actions">
+							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg oc-btn-block"><?php esc_html_e( 'Sign in', 'owambe-connect-core' ); ?></button>
+						</div>
+						<p class="oc-help oc-help--center">
+							<?php esc_html_e( 'New to Owambe Connect?', 'owambe-connect-core' ); ?>
+							<a href="<?php echo esc_url( $client_register_url ); ?>"><?php esc_html_e( 'Create an account', 'owambe-connect-core' ); ?></a>
+						</p>
+					</form>
 				</div>
 			</div>
 

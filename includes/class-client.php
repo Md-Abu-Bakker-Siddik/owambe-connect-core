@@ -40,6 +40,10 @@ class OC_Client {
 	/** Window inside which a repeat vendor+channel contact is not re-recorded. */
 	const CONTACT_DEDUPE_WINDOW = HOUR_IN_SECONDS;
 
+	/** admin-post actions for native (non-Google) client auth. */
+	const ACTION_REGISTER = 'oc_client_register';
+	const ACTION_LOGIN    = 'oc_client_login';
+
 	public function register() {
 		add_action( 'init', [ __CLASS__, 'register_role' ] );
 
@@ -48,6 +52,13 @@ class OC_Client {
 		add_action( 'template_redirect', [ $this, 'gate_client_pages' ] );
 
 		add_action( 'wp_ajax_' . self::ACTION_TOGGLE_SAVED, [ __CLASS__, 'ajax_toggle_saved' ] );
+
+		// Native email/password client auth (for people without a Google account,
+		// e.g. Yahoo/Outlook users). Both nopriv (form submit) and priv (defensive).
+		add_action( 'admin_post_nopriv_' . self::ACTION_REGISTER, [ __CLASS__, 'handle_register' ] );
+		add_action( 'admin_post_'        . self::ACTION_REGISTER, [ __CLASS__, 'handle_register' ] );
+		add_action( 'admin_post_nopriv_' . self::ACTION_LOGIN,    [ __CLASS__, 'handle_login' ] );
+		add_action( 'admin_post_'        . self::ACTION_LOGIN,    [ __CLASS__, 'handle_login' ] );
 	}
 
 	/**
@@ -136,6 +147,144 @@ class OC_Client {
 				exit;
 			}
 		}
+	}
+
+	/* ───────────────────── Native email/password auth ──────────────────── */
+
+	/**
+	 * Redirect back to the client-login page with an error, preserving the
+	 * sign-in vs create-account mode and any redirect_to round-trip. add_query_arg
+	 * does not URL-encode, so values are rawurlencode()'d to match OC_Google_Auth.
+	 */
+	private static function bounce_to_login( $error = '', $mode = 'login' ) {
+		$q = [];
+		if ( 'register' === $mode ) {
+			$q['mode'] = 'register';
+		}
+		if ( ! empty( $_POST['redirect_to'] ) ) {
+			$q['redirect_to'] = rawurlencode( esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) );
+		}
+		if ( '' !== $error ) {
+			$q['oc_error'] = rawurlencode( $error );
+		}
+		$url = oc_page_url( 'client-login' );
+		wp_safe_redirect( $q ? add_query_arg( $q, $url ) : $url );
+		exit;
+	}
+
+	/** Resolve the post-auth destination: honour a safe redirect_to, else dashboard. */
+	private static function auth_destination( $default ) {
+		if ( ! empty( $_POST['redirect_to'] ) ) {
+			$maybe = wp_validate_redirect( esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ), '' );
+			if ( '' !== $maybe ) {
+				return $maybe;
+			}
+		}
+		return $default;
+	}
+
+	/**
+	 * Create a client account from the native registration form and sign them in.
+	 * Bypasses the users_can_register option deliberately: this is a first-party
+	 * client sign-up, gated by nonce + validation, not open WP registration.
+	 */
+	public static function handle_register() {
+		if ( ! isset( $_POST['oc_client_register_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['oc_client_register_nonce'] ) ), self::ACTION_REGISTER ) ) {
+			self::bounce_to_login( __( 'Security check failed. Please try again.', 'owambe-connect-core' ), 'register' );
+		}
+
+		// Already signed in — nothing to create.
+		if ( is_user_logged_in() ) {
+			wp_safe_redirect( self::dashboard_url() );
+			exit;
+		}
+
+		$email = isset( $_POST['email'] )        ? sanitize_email( wp_unslash( $_POST['email'] ) )              : '';
+		$login = isset( $_POST['username'] )     ? sanitize_user( wp_unslash( $_POST['username'] ), true )      : '';
+		$name  = isset( $_POST['display_name'] ) ? sanitize_text_field( wp_unslash( $_POST['display_name'] ) )  : '';
+		$pass  = isset( $_POST['password'] )     ? (string) wp_unslash( $_POST['password'] )                    : '';
+		$pass2 = isset( $_POST['password2'] )    ? (string) wp_unslash( $_POST['password2'] )                   : '';
+
+		if ( ! is_email( $email ) ) {
+			self::bounce_to_login( __( 'Please enter a valid email address.', 'owambe-connect-core' ), 'register' );
+		}
+		if ( strlen( $pass ) < 8 ) {
+			self::bounce_to_login( __( 'Your password must be at least 8 characters.', 'owambe-connect-core' ), 'register' );
+		}
+		if ( $pass !== $pass2 ) {
+			self::bounce_to_login( __( 'The two passwords do not match.', 'owambe-connect-core' ), 'register' );
+		}
+		if ( email_exists( $email ) ) {
+			self::bounce_to_login( __( 'That email already has an account. Please sign in instead.', 'owambe-connect-core' ), 'login' );
+		}
+
+		// Derive a username from the email when none was supplied, and guarantee
+		// uniqueness by suffixing an incrementing number.
+		if ( '' === $login ) {
+			$parts = explode( '@', $email );
+			$login = sanitize_user( $parts[0], true );
+		}
+		if ( '' === $login || username_exists( $login ) ) {
+			$base = '' !== $login ? $login : 'client';
+			$i    = 1;
+			do {
+				$login = $base . $i;
+				$i++;
+			} while ( username_exists( $login ) );
+		}
+
+		$user_id = wp_insert_user( [
+			'user_login'   => $login,
+			'user_email'   => $email,
+			'user_pass'    => $pass,
+			'role'         => OC_CLIENT_ROLE,
+			'display_name' => '' !== $name ? $name : $login,
+		] );
+		if ( is_wp_error( $user_id ) ) {
+			self::bounce_to_login( __( 'We could not create your account. Please try again.', 'owambe-connect-core' ), 'register' );
+		}
+
+		do_action( 'oc_after_client_registered', $user_id );
+		if ( class_exists( 'OC_Mail' ) && method_exists( 'OC_Mail', 'client_welcome' ) ) {
+			OC_Mail::client_welcome( $user_id );
+		}
+
+		// Sign them straight in.
+		wp_set_current_user( $user_id );
+		wp_set_auth_cookie( $user_id, true );
+
+		wp_safe_redirect( self::auth_destination( self::dashboard_url() ) );
+		exit;
+	}
+
+	/**
+	 * Native email/password sign-in for clients. wp_signon accepts either the
+	 * email or the username in 'user_login'. Vendors are role-routed to their
+	 * own dashboard so this page works for any account.
+	 */
+	public static function handle_login() {
+		if ( ! isset( $_POST['oc_client_login_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['oc_client_login_nonce'] ) ), self::ACTION_LOGIN ) ) {
+			self::bounce_to_login( __( 'Security check failed. Please try again.', 'owambe-connect-core' ), 'login' );
+		}
+
+		$creds = [
+			'user_login'    => isset( $_POST['log'] ) ? sanitize_text_field( wp_unslash( $_POST['log'] ) ) : '',
+			'user_password' => isset( $_POST['pwd'] ) ? (string) wp_unslash( $_POST['pwd'] ) : '',
+			'remember'      => ! empty( $_POST['rememberme'] ),
+		];
+		$user = wp_signon( $creds, is_ssl() );
+		if ( is_wp_error( $user ) ) {
+			self::bounce_to_login( __( 'Invalid email or password.', 'owambe-connect-core' ), 'login' );
+		}
+
+		$default = ( $user instanceof WP_User && in_array( OC_ROLE, (array) $user->roles, true ) )
+			? oc_page_url( 'vendor-dashboard' )
+			: self::dashboard_url();
+
+		wp_safe_redirect( self::auth_destination( $default ) );
+		exit;
 	}
 
 	/* ─────────────────────────── Saved vendors ─────────────────────────── */
