@@ -205,34 +205,36 @@
 			var pool = items.filter(function (o) { return !isPinnedChain(o.sec); });
 			return pool.length ? pool : items;
 		};
-		// Trigger line = pinned nav bottom (header offset from the template + nav height).
-		var triggerOffset = function () {
-			var top = parseInt(nav.style.top, 10);
-			if (isNaN(top)) top = Math.round(nav.getBoundingClientRect().top);
-			return Math.max(0, top) + Math.round(nav.getBoundingClientRect().height);
-		};
+			var byId = {};
+			items.forEach(function (o) { byId[o.sec.id] = o; });
 
-		var visible = {}, observer = null;
-		var pick = function () {
-			var best = null, bestTop = Infinity;
-			items.forEach(function (o) {
-				if (visible[o.sec.id]) {
-					var top = o.sec.getBoundingClientRect().top;
-					if (top < bestTop) { bestTop = top; best = o; }
-				}
-			});
-			if (best) setActive(best.link);
-		};
-		var build = function () {
-			if (observer) observer.disconnect();
-			visible = {};
-			observer = new IntersectionObserver(function (entries) {
-				entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
-				pick();
-			}, { rootMargin: '-' + (triggerOffset() + 4) + 'px 0px -55% 0px', threshold: 0 });
-			inFlowPool().forEach(function (o) { observer.observe(o.sec); });
-		};
-		build();
+			// Trigger line = the pinned nav's bottom edge: header offset (set inline by the
+			// template) + the floating bubble's own margin + its height, nudged a few px down
+			// so a section counts as active once its top clears the bar.
+			var lineY = function () {
+				var top = parseInt(nav.style.top, 10);
+				if (isNaN(top)) top = Math.round(nav.getBoundingClientRect().top);
+				var mt = parseFloat(getComputedStyle(nav).marginTop) || 0;
+				return Math.max(0, Math.round(top + mt)) + nav.offsetHeight + 6;
+			};
+
+			// A 1px observer band sitting on that line means exactly ONE section — the one
+			// currently under the bar — intersects. Fixes the earlier "topmost visible" bug
+			// where a tall section still peeking into a wide band kept winning.
+			var observer = null;
+			var build = function () {
+				if (observer) observer.disconnect();
+				var T = Math.round(lineY());
+				var vh = window.innerHeight || document.documentElement.clientHeight;
+				var bottom = Math.max(0, vh - T - 1);
+				observer = new IntersectionObserver(function (entries) {
+					entries.forEach(function (e) {
+						if (e.isIntersecting && byId[e.target.id]) setActive(byId[e.target.id].link);
+					});
+				}, { rootMargin: '-' + T + 'px 0px -' + bottom + 'px 0px', threshold: 0 });
+				inFlowPool().forEach(function (o) { observer.observe(o.sec); });
+			};
+			build();
 
 		var raf;
 		window.addEventListener('resize', function () {
