@@ -44,10 +44,30 @@
 .oc-vd__menu-btn .dashicons { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
 
 .oc-vd__menu-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid #EFEAE2; display: flex; flex-direction: column; gap: 4px; }
-.oc-vd__menu-link { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; text-decoration: none; color: #6B6361; font-size: 13px; font-weight: 500; transition: all .15s; }
-.oc-vd__menu-link:hover { background: #FAF7F2; color: #6E0F2C; }
-.oc-vd__menu-link--logout:hover { color: #B0354F; }
-.oc-vd__menu-link .dashicons { font-size: 15px; width: 15px; height: 15px; }
+/* Every sidebar item — whether an <a> or a <button> — is a clean text link.
+   The theme styles bare <button>s as bordered pills, so we hard-reset the
+   box (border / background / shadow / radius) with !important to guarantee the
+   toggle and "Copy profile link" buttons read as plain menu items. */
+.oc-vd__menu-foot .oc-vd__menu-link,
+.oc-vd__menu-foot button.oc-vd__menu-link {
+	display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 8px 12px;
+	border: 0 !important; background: transparent !important; box-shadow: none !important;
+	border-radius: 8px; text-align: left; text-decoration: none;
+	color: #6B6361; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.4;
+	cursor: pointer; -webkit-appearance: none; appearance: none;
+	transition: color .15s, background-color .15s, font-weight .15s;
+}
+.oc-vd__menu-foot .oc-vd__menu-link:hover { background: #FAF7F2 !important; color: #6E0F2C; }
+.oc-vd__menu-foot .oc-vd__menu-link:focus-visible { outline: 2px solid #C9A961; outline-offset: 1px; }
+.oc-vd__menu-foot .oc-vd__menu-link--logout:hover { color: #B0354F; }
+.oc-vd__menu-foot .oc-vd__menu-link .dashicons { font-size: 15px; width: 15px; height: 15px; flex: 0 0 auto; }
+
+/* Share My Business — collapsible group */
+.oc-vd__menu-caret { margin-left: auto; transition: transform .18s ease; }
+.oc-vd__menu-toggle[aria-expanded="true"] .oc-vd__menu-caret { transform: rotate(90deg); }
+.oc-vd__menu-toggle[aria-expanded="true"] { color: #6E0F2C; }
+.oc-vd__submenu { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 2px 12px; padding-left: 10px; border-left: 1px solid #EFEAE2; }
+.oc-vd__submenu[hidden] { display: none; }
 
 /* Content area */
 .oc-vd__content { min-width: 0; }
