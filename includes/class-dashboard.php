@@ -1012,6 +1012,10 @@ class OC_Dashboard {
 		}
 
 		reset_password( $user, $pass1 );
+		// Route users back to the login surface that matches their account type —
+		// clients (incl. Google users who just set a password) go to the client
+		// login, vendors stay on the vendor login. Filtered by OC_Client.
+		$login_url = apply_filters( 'oc_reset_password_login_url', $login_url, $user );
 		$this->redirect( $login_url, '', __( 'Password updated — please log in with your new password.', 'owambe-connect-core' ) );
 	}
 

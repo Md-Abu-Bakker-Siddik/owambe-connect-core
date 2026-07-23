@@ -59,6 +59,26 @@ class OC_Client {
 		add_action( 'admin_post_'        . self::ACTION_REGISTER, [ __CLASS__, 'handle_register' ] );
 		add_action( 'admin_post_nopriv_' . self::ACTION_LOGIN,    [ __CLASS__, 'handle_login' ] );
 		add_action( 'admin_post_'        . self::ACTION_LOGIN,    [ __CLASS__, 'handle_login' ] );
+
+		// Password reset is shared with vendors (OC_Dashboard). Route clients back
+		// to the client login afterwards — this is also how a Google-only user
+		// (random password) sets a real password so they can use email/password.
+		add_filter( 'oc_reset_password_login_url', [ __CLASS__, 'filter_reset_login_url' ], 10, 2 );
+	}
+
+	/**
+	 * After a branded password reset, send clients back to the client login page
+	 * instead of the vendor login (OC_Dashboard's default). Vendors are left alone.
+	 * Works for both native email/password clients and Google-OAuth clients who
+	 * used "Forgot password" to set a usable password.
+	 */
+	public static function filter_reset_login_url( $url, $user ) {
+		if ( $user instanceof WP_User
+			&& in_array( OC_CLIENT_ROLE, (array) $user->roles, true )
+			&& ! in_array( OC_ROLE, (array) $user->roles, true ) ) {
+			return oc_page_url( 'client-login' );
+		}
+		return $url;
 	}
 
 	/**
@@ -215,8 +235,11 @@ class OC_Client {
 		if ( $pass !== $pass2 ) {
 			self::bounce_to_login( __( 'The two passwords do not match.', 'owambe-connect-core' ), 'register' );
 		}
+		// Already registered — could be a native OR a Google account on this email.
+		// Send them to sign-in; if they only ever used Google, "Forgot password"
+		// on that page lets them set a password (both methods then work).
 		if ( email_exists( $email ) ) {
-			self::bounce_to_login( __( 'That email already has an account. Please sign in instead.', 'owambe-connect-core' ), 'login' );
+			self::bounce_to_login( __( 'That email is already registered. Please sign in — or use "Forgot password" to set a password.', 'owambe-connect-core' ), 'login' );
 		}
 
 		// Derive a username from the email when none was supplied, and guarantee
