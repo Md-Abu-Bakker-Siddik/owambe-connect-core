@@ -164,17 +164,20 @@ $tabs = [
 					</header>
 
 					<div class="oc-vd__stats">
-						<div class="oc-vd__stat">
+						<?php // Clickable stat → jumps to the Saved panel (no reload; handled by setTab delegation). ?>
+						<button type="button" class="oc-vd__stat oc-vd__stat--btn" data-oc-tab-jump="saved" aria-label="<?php esc_attr_e( 'View saved vendors', 'owambe-connect-core' ); ?>">
 							<span class="dashicons dashicons-heart"></span>
-							<div><strong><?php echo (int) $saved_count; ?></strong><small><?php esc_html_e( 'Saved vendors', 'owambe-connect-core' ); ?></small></div>
-						</div>
-						<div class="oc-vd__stat">
+							<span class="oc-vd__stat-body"><strong><?php echo (int) $saved_count; ?></strong><small><?php esc_html_e( 'Saved vendors', 'owambe-connect-core' ); ?></small></span>
+						</button>
+						<?php // Clickable stat → jumps to the Recently contacted panel. ?>
+						<button type="button" class="oc-vd__stat oc-vd__stat--btn" data-oc-tab-jump="contacted" aria-label="<?php esc_attr_e( 'View vendors you have contacted', 'owambe-connect-core' ); ?>">
 							<span class="dashicons dashicons-email-alt"></span>
-							<div><strong><?php echo (int) $contact_count; ?></strong><small><?php esc_html_e( 'Vendors contacted', 'owambe-connect-core' ); ?></small></div>
-						</div>
+							<span class="oc-vd__stat-body"><strong><?php echo (int) $contact_count; ?></strong><small><?php esc_html_e( 'Vendors contacted', 'owambe-connect-core' ); ?></small></span>
+						</button>
+						<?php // Static — no panel to jump to. ?>
 						<div class="oc-vd__stat">
 							<span class="dashicons dashicons-calendar-alt"></span>
-							<div><strong><?php echo esc_html( $member_ts ? date_i18n( 'M Y', $member_ts ) : '—' ); ?></strong><small><?php esc_html_e( 'Member since', 'owambe-connect-core' ); ?></small></div>
+							<span class="oc-vd__stat-body"><strong><?php echo esc_html( $member_ts ? date_i18n( 'M Y', $member_ts ) : '—' ); ?></strong><small><?php esc_html_e( 'Member since', 'owambe-connect-core' ); ?></small></span>
 						</div>
 					</div>
 
