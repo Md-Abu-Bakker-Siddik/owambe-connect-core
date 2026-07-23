@@ -673,6 +673,91 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 		var root = document.getElementById('oc-vendor-<?php echo (int) $id; ?>');
 		if (!root) return;
 
+			// ─────────── Pin the section nav below the sticky site header ───────────
+			// The theme header (.oc-site-header) is position:sticky, and this nav is
+			// also sticky at top:0 — so without an offset the nav pins *behind* the
+			// header and disappears. Measure the header's pinned bottom edge (covers
+			// header height + the WP admin bar) and offset the nav + anchor targets to
+			// match. With no sticky header (e.g. a static widget header) the nav stays
+			// flush at top:0.
+			var vpNav = root.querySelector('.oc-vp-nav');
+			if (vpNav) {
+				var findStickyHeader = function () {
+					var ok = function (el) { if (!el) return false; var pos = getComputedStyle(el).position; return pos === 'sticky' || pos === 'fixed'; };
+					var h = document.querySelector('.oc-site-header');
+					if (h) return ok(h) ? h : null;
+					var cands = document.querySelectorAll('header, .elementor-location-header');
+					for (var i = 0; i < cands.length; i++) {
+						if (root.contains(cands[i])) continue;
+						if (ok(cands[i]) && cands[i].getBoundingClientRect().top < 100) return cands[i];
+					}
+					return null;
+				};
+				var syncNavOffset = function () {
+					var h = findStickyHeader();
+					var offset = 0;
+					if (h) { var r = h.getBoundingClientRect(); offset = Math.max(0, Math.round(r.top)) + Math.round(r.height); }
+					vpNav.style.top = offset + 'px';
+					var margin = offset + Math.round(vpNav.getBoundingClientRect().height) + 8;
+					root.querySelectorAll('.oc-vp__section').forEach(function (s) { s.style.scrollMarginTop = margin + 'px'; });
+				};
+				syncNavOffset();
+				window.addEventListener('resize', syncNavOffset, { passive: true });
+				window.addEventListener('load', syncNavOffset);
+
+				// ─────────── Scroll-spy: highlight the pill of the section under the bar ───────────
+				// Two gotchas: (1) Contact sits in a parallel sidebar column, and (2) on desktop
+				// that sidebar is position:sticky (top:88px) so it never scrolls away — its top
+				// stays near the trigger line and would hijack the highlight. So we spy ONLY over
+				// sections that are NOT inside a sticky/fixed container, and among those pick the
+				// one whose top is highest yet still above the line (most recently scrolled past).
+				var spy = Array.prototype.slice.call(vpNav.querySelectorAll('.oc-vp-nav__link')).map(function (a) {
+					var id = (a.getAttribute('href') || '').replace(/^#/, '');
+					return { link: a, sec: id && document.getElementById(id), inFlow: true };
+				}).filter(function (o) { return o.sec; });
+				if (spy.length) {
+					var setActive = function (link) {
+						spy.forEach(function (o) { o.link.classList.toggle('is-active', o.link === link); });
+					};
+					// True if the section (or an ancestor up to the article) is sticky/fixed —
+					// e.g. the desktop sidebar. Such sections stay in view regardless of scroll.
+					var isPinnedChain = function (el) {
+						for (var n = el; n && n !== root; n = n.parentElement) {
+							var pos = getComputedStyle(n).position;
+							if (pos === 'sticky' || pos === 'fixed') return true;
+						}
+						return false;
+					};
+					var computeFlow = function () { spy.forEach(function (o) { o.inFlow = !isPinnedChain(o.sec); }); };
+					var spyTick = false;
+					var updateSpy = function () {
+						spyTick = false;
+						var line = ((parseInt(vpNav.style.top, 10) || 0) + Math.round(vpNav.getBoundingClientRect().height)) + 8;
+						var pool = spy.filter(function (o) { return o.inFlow; });
+						if (!pool.length) pool = spy;
+						var atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+						var current = pool[0], bestTop = -Infinity;
+						if (atBottom) {
+							current = pool[pool.length - 1]; // reached the end → last in-flow pill
+						} else {
+							pool.forEach(function (o) {
+								var top = o.sec.getBoundingClientRect().top;
+								if (top <= line && top > bestTop) { bestTop = top; current = o; }
+							});
+						}
+						if (current) setActive(current.link);
+					};
+					var onSpyScroll = function () { if (!spyTick) { spyTick = true; requestAnimationFrame(updateSpy); } };
+					window.addEventListener('scroll', onSpyScroll, { passive: true });
+					window.addEventListener('resize', function () { computeFlow(); onSpyScroll(); }, { passive: true });
+					window.addEventListener('load', function () { computeFlow(); updateSpy(); });
+					// Snappy feedback: highlight immediately on click; scrolling refines it.
+					spy.forEach(function (o) { o.link.addEventListener('click', function () { setActive(o.link); }); });
+					computeFlow();
+					updateSpy();
+				}
+			}
+
 		// Share dropdown
 		var shareWrap = root.querySelector('[data-oc-share-wrap]');
 		if (shareWrap) {
