@@ -63,11 +63,27 @@
 .oc-vd__menu-foot .oc-vd__menu-link .dashicons { font-size: 15px; width: 15px; height: 15px; flex: 0 0 auto; }
 
 /* Share My Business — collapsible group */
-.oc-vd__menu-caret { margin-left: auto; transition: transform .18s ease; }
+.oc-vd__menu-caret { margin-left: auto; transition: transform .22s ease; }
 .oc-vd__menu-toggle[aria-expanded="true"] .oc-vd__menu-caret { transform: rotate(90deg); }
 .oc-vd__menu-toggle[aria-expanded="true"] { color: #6E0F2C; }
-.oc-vd__submenu { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 2px 12px; padding-left: 10px; border-left: 1px solid #EFEAE2; }
-.oc-vd__submenu[hidden] { display: none; }
+
+/* Smooth expand/collapse: animate grid rows 0fr -> 1fr so the height eases
+   open (no snap, no jump on the cards below) and the items fade in. */
+.oc-vd__submenu { display: grid; grid-template-rows: 0fr; margin: 0 0 0 12px; padding-left: 10px; border-left: 1px solid #EFEAE2; transition: grid-template-rows .28s ease, margin .28s ease; }
+.oc-vd__submenu-inner { overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 2px; opacity: 0; transform: translateY(-4px); transition: opacity .22s ease .03s, transform .24s ease; }
+.oc-vd__submenu.is-open { grid-template-rows: 1fr; margin: 2px 0 4px 12px; }
+.oc-vd__submenu.is-open .oc-vd__submenu-inner { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+	.oc-vd__submenu, .oc-vd__submenu-inner, .oc-vd__menu-caret { transition: none; }
+}
+
+/* Business-card groups: a small heading (PNG / PDF) with two variant links. */
+.oc-vd__submenu-label { display: flex; align-items: center; gap: 8px; margin: 8px 0 1px; padding: 0 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #A79A93; }
+.oc-vd__submenu-label:first-child { margin-top: 2px; }
+.oc-vd__submenu-label .dashicons { font-size: 13px; width: 13px; height: 13px; color: #C9A961; }
+.oc-vd__menu-foot .oc-vd__menu-link--sub { padding-left: 22px; font-size: 12.5px; color: #7A6E68; }
+.oc-vd__menu-foot .oc-vd__menu-link--sub .dashicons { font-size: 13px; width: 13px; height: 13px; }
 
 /* Content area */
 .oc-vd__content { min-width: 0; }

@@ -362,18 +362,24 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 							<span class="dashicons dashicons-email"></span>
 							<span><?php esc_html_e( 'Share by email', 'owambe-connect-core' ); ?></span>
 						</a>
-						<a class="oc-vd__menu-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png' ), 'oc_business_card' ) ); ?>">
-							<span class="dashicons dashicons-id-alt"></span>
-							<span><?php esc_html_e( 'Business card (Color PNG)', 'owambe-connect-core' ); ?></span>
-						</a>
-						<a class="oc-vd__menu-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png&variant=bw' ), 'oc_business_card' ) ); ?>">
-							<span class="dashicons dashicons-id-alt"></span>
-							<span><?php esc_html_e( 'Business card (B&W PNG)', 'owambe-connect-core' ); ?></span>
-						</a>
-						<a class="oc-vd__menu-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=pdf' ), 'oc_business_card' ) ); ?>">
-							<span class="dashicons dashicons-pdf"></span>
-							<span><?php esc_html_e( 'Business card (PDF)', 'owambe-connect-core' ); ?></span>
-						</a>
+						<span class="oc-vd__submenu-label"><span class="dashicons dashicons-id-alt"></span><?php esc_html_e( 'Business Card (PNG)', 'owambe-connect-core' ); ?></span>
+							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png' ), 'oc_business_card' ) ); ?>">
+								<span class="dashicons dashicons-art"></span>
+								<span><?php esc_html_e( 'Coloured', 'owambe-connect-core' ); ?></span>
+							</a>
+							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png&variant=bw' ), 'oc_business_card' ) ); ?>">
+								<span class="dashicons dashicons-media-default"></span>
+								<span><?php esc_html_e( 'White & Black', 'owambe-connect-core' ); ?></span>
+							</a>
+							<span class="oc-vd__submenu-label"><span class="dashicons dashicons-pdf"></span><?php esc_html_e( 'Business Card (PDF)', 'owambe-connect-core' ); ?></span>
+							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=pdf' ), 'oc_business_card' ) ); ?>">
+								<span class="dashicons dashicons-art"></span>
+								<span><?php esc_html_e( 'Coloured', 'owambe-connect-core' ); ?></span>
+							</a>
+							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=pdf&variant=bw' ), 'oc_business_card' ) ); ?>">
+								<span class="dashicons dashicons-media-default"></span>
+								<span><?php esc_html_e( 'White & Black', 'owambe-connect-core' ); ?></span>
+							</a>
 					</div><?php // .oc-vd__submenu-inner ?>
 						</div><?php // .oc-vd__submenu ?>
 						<?php endif; ?>
