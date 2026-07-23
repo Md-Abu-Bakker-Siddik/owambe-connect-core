@@ -47,7 +47,7 @@ The model is **discovery without a middleman**: hosts browse rich vendor profile
 |----------|--------------|:---------------:|
 | **Event hosts / customers** | Search, browse, view profiles, contact vendors, request a vendor | ❌ No |
 | **Vendors** | Register, build a profile, submit for review, manage their listing | ✅ `oc_vendor` role |
-| **Clients** *(Phase 2)* | Save favourites & create event pages (Google sign‑in) | ✅ `oc_client` role |
+| **Clients (signed‑in hosts)** | Save favourites & see recently contacted — sign in with **Google _or_ email/password** | ✅ `oc_client` role |
 | **Admins** | Review/approve vendors, import/export, view analytics | ✅ WP admin |
 
 > Vendors and clients get a **frontend‑only** experience — they never touch `/wp-admin`.
@@ -58,11 +58,19 @@ The model is **discovery without a middleman**: hosts browse rich vendor profile
 
 ### Public / customer‑facing
 - 🔎 **Hero search** — category dropdown + smart UK location typeahead + quick‑pick category pills.
-- 🗂️ **Vendor directory** — free‑text search, category / region / city filters, pagination, live result count and tailored empty states. Only approved vendors are public.
+- 🗂️ **Vendor directory** — free‑text search, category / region / city **and cultural‑specialty** filters, pagination, live result count and tailored empty states. Only approved vendors are public.
 - 🏷️ **Category grid** — browse by category as a photo carousel or icon grid.
 - ⭐ **Featured vendors** — homepage grid of admin‑flagged vendors (falls back to newest).
 - 👤 **Vendor profile** — hero banner, logo, badges, gallery lightbox, contact card, similar‑vendors carousel and JSON‑LD SEO schema.
+- 🧭 **Floating section nav** — a sticky pill bar (About · Services · Portfolio · How to book · Reviews · Contact) with a **gold‑underline scroll‑spy** and smooth scrolling; wraps onto two lines on mobile.
+- 🔗 **Tappable badges** — category and cultural‑specialty chips link straight to the filtered directory.
 - 📨 **Contact form & "Request a Vendor" button** — logged to the admin enquiry log with delivery‑status tracking.
+
+### Client accounts & safety
+- 🔐 **Two ways to sign up** — one‑tap **Google** *or* a native **email/password** account (for Yahoo/Outlook users), on `/client-login/`.
+- ☑️ **Mandatory Terms & Conditions** — a required consent tick on both sign‑up methods; the Terms link is set in **Settings** (falls back to `/terms/`).
+- 💗 **Client dashboard** — saved vendors + recently contacted, with **clickable stat tiles** that jump to each list (no reload).
+- 🛡️ **Website Safety page** — a seeded `/safety/` page of practical safety tips, with an admin‑editable intro and a filterable tip set (`oc_safety_items`).
 
 ### Vendor lifecycle
 - ⚡ **Minimal registration** at `/apply/` — auto‑login + welcome email.
@@ -125,7 +133,7 @@ The model is **discovery without a middleman**: hosts browse rich vendor profile
 
 ## 🧩 Shortcodes
 
-The frontend is assembled from **24 shortcodes**, each mirrored by an Elementor widget of the same name.
+The frontend is assembled from **25 shortcodes**, each mirrored by an Elementor widget of the same name.
 
 | Shortcode | Purpose |
 |-----------|---------|
@@ -138,7 +146,8 @@ The frontend is assembled from **24 shortcodes**, each mirrored by an Elementor 
 | `[oc_vendor_dashboard]` | Self‑service vendor dashboard |
 | `[oc_forgot_password]` · `[oc_reset_password]` | Branded password reset |
 | `[oc_contact_form]` · `[oc_vendor_request_fab]` | Contact + "Request a vendor" |
-| `[oc_client_login]` · `[oc_client_dashboard]` | Client accounts *(Phase 2)* |
+| `[oc_client_login]` · `[oc_client_dashboard]` | Client accounts (Google + email/password) |
+| `[oc_safety_info]` | Website Safety Information page |
 | `[oc_how_it_works]` · `[oc_testimonials]` · `[oc_faq]` · `[oc_stats]` · `[oc_about_blocks]` · `[oc_feature_row]` · `[oc_become_a_vendor_cta]` · `[oc_navbar]` · `[oc_footer]` · `[oc_breadcrumb]` | Page‑building blocks |
 
 > A full, always‑current list (with hooks, meta keys and file paths) lives in the in‑admin **Developer Guide**.
@@ -150,18 +159,19 @@ The frontend is assembled from **24 shortcodes**, each mirrored by an Elementor 
 Every approved vendor gets a **premium, downloadable business card** — generated server‑side with GD (no external APIs).
 
 - 🎨 **Two variants** — the signature **gold‑on‑burgundy** design and a clean **black‑&‑white** version (`?variant=bw`).
-- 🖼️ **Formats** — high‑resolution **PNG** and a print‑ready single‑page **PDF**.
+- 🖼️ **Two formats** — high‑resolution **PNG** and a print‑ready single‑page **PDF** — so **four one‑click downloads** in all.
 - 🔗 **Live QR code** that deep‑links to the vendor's public profile, with rounded corners and a framed panel.
 - 📇 **Crisp, tinted contact icons** (WhatsApp, Email, Instagram, Web) bundled under `assets/icons/` and recoloured to match each variant.
 - 🧠 **Smart, single‑line location** — collapses multiple regions to *"Primary Region & UK‑wide"* and never overflows the card.
 - 🖼️ **Robust logo fitting** — aspect‑correct, padded, transparency‑safe (and desaturated in the B&W variant).
 
-Vendors download all three from the dashboard sidebar:
+Vendors grab them from the dashboard's **Share My Business → Business Card** menu:
 
 ```
-Business card (Color PNG)   → …/admin-post.php?action=oc_business_card&format=png
-Business card (B&W PNG)     → …&format=png&variant=bw
-Business card (PDF)         → …&format=pdf
+Colour PNG        → …/admin-post.php?action=oc_business_card&format=png
+White & Black PNG → …&format=png&variant=bw
+Colour PDF        → …&format=pdf
+White & Black PDF → …&format=pdf&variant=bw
 ```
 
 ---
@@ -233,7 +243,10 @@ owambe-connect-core/
 No. Hosts contact vendors directly via WhatsApp / email / social — the platform never sits between them.
 
 **Do customers need an account to browse?**
-No. Browsing and searching are fully public; an account is only needed to list a business (vendors) or save favourites / create event pages (clients).
+No. Browsing and searching are fully public; an account is only needed to list a business (vendors) or to save favourites & track contacts (clients).
+
+**How do event hosts sign up — do they need a Google account?**
+No. Hosts can sign in with **Google** *or* create a normal **email/password** account on `/client-login/` (so Yahoo/Outlook users are covered). Both require accepting the Terms & Conditions.
 
 **Why aren't my emails arriving?**
 The plugin logs every enquiry even if mail fails, but reliable delivery needs an SMTP plugin (FluentSMTP or WP Mail SMTP). Check **Vendors → Enquiries** for the delivery status of each message.
@@ -244,6 +257,17 @@ Yes — everything in `templates/` (except emails) is theme‑overridable via `o
 ---
 
 ## 📝 Changelog
+
+### 1.2.x — *Client accounts, safety & profile polish*
+- 🔐 **Native client accounts** — email/username + password **sign‑up and login** alongside Google, on `/client-login/` and the vendor‑login "Client" tab.
+- ☑️ **Mandatory Terms & Conditions** consent on both sign‑up methods; the Terms link is configurable in **Settings** (`client_terms_url`).
+- 🔁 **Client‑aware password reset** — resets route hosts back to the client login (and let Google‑only users set a password).
+- 🧭 **Floating profile section nav** — sticky pill bar with a gold‑underline **scroll‑spy**, smooth in‑page scrolling and a two‑line mobile layout.
+- 🔗 **Tappable category & cultural‑specialty badges** → a new **cultural‑specialty filter** in the directory.
+- 🪪 **Business card** — grouped **Colour / Black‑&‑White × PNG / PDF** downloads under a tidied **"Share My Business"** sidebar menu.
+- 💗 **Client dashboard** — clickable *Saved Vendors* / *Vendors Contacted* stat tiles that switch panels with no reload.
+- 🛡️ **Website Safety** — new `[oc_safety_info]` shortcode + seeded `/safety/` page + admin intro setting.
+- 📊 **Admin analytics** — clickable KPI drill‑downs, a contact‑method breakdown, and search‑&‑discovery insights.
 
 ### 1.2.0 — *Phase 2 (Weeks 1–2)*
 - ➕ Client accounts + Google sign‑in, saved vendors & recently‑contacted.
