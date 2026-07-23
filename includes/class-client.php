@@ -235,6 +235,10 @@ class OC_Client {
 		if ( $pass !== $pass2 ) {
 			self::bounce_to_login( __( 'The two passwords do not match.', 'owambe-connect-core' ), 'register' );
 		}
+		// Terms & Conditions are mandatory — no account is created without consent.
+		if ( empty( $_POST['accept_terms'] ) ) {
+			self::bounce_to_login( __( 'Please accept the Terms & Conditions to create your account.', 'owambe-connect-core' ), 'register' );
+		}
 		// Already registered — could be a native OR a Google account on this email.
 		// Send them to sign-in; if they only ever used Google, "Forgot password"
 		// on that page lets them set a password (both methods then work).
@@ -267,6 +271,9 @@ class OC_Client {
 		if ( is_wp_error( $user_id ) ) {
 			self::bounce_to_login( __( 'We could not create your account. Please try again.', 'owambe-connect-core' ), 'register' );
 		}
+
+		// Record the T&C acceptance (timestamp) for compliance.
+		update_user_meta( $user_id, '_oc_terms_accepted', time() );
 
 		do_action( 'oc_after_client_registered', $user_id );
 		if ( class_exists( 'OC_Mail' ) && method_exists( 'OC_Mail', 'client_welcome' ) ) {

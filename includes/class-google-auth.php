@@ -103,6 +103,13 @@ class OC_Google_Auth {
 				$user_id = $existing;
 				update_user_meta( $user_id, self::META_SUB, $sub );
 			} else {
+				// CREATE requires T&C consent — the sign-in gate drops this cookie
+				// only after the visitor ticks "I accept the Terms & Conditions".
+				// Existing users signing in are unaffected (they never reach here).
+				if ( empty( $_COOKIE['oc_terms_accepted'] ) ) {
+					$this->fail( __( 'Please tick "I accept the Terms & Conditions" before continuing with Google.', 'owambe-connect-core' ) );
+				}
+
 				// CREATE: brand-new client account with a random password.
 				$args = [
 					'user_login' => $email,
@@ -119,6 +126,7 @@ class OC_Google_Auth {
 					$this->fail();
 				}
 				update_user_meta( $user_id, self::META_SUB, $sub );
+				update_user_meta( $user_id, '_oc_terms_accepted', time() );
 
 				do_action( 'oc_after_client_registered', $user_id );
 
@@ -270,7 +278,14 @@ class OC_Google_Auth {
 		// (?action=…) fails. The handler routes users by role after login.
 		$login_uri = rest_url( 'oc/v1/google-login' );
 
-		$html  = '<div class="oc-google-signin">';
+		$terms_url   = function_exists( 'oc_client_terms_url' ) ? oc_client_terms_url() : ( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : '#' );
+		$privacy_url = function_exists( 'oc_page_url' ) ? oc_page_url( 'privacy' ) : '#';
+		// Terms gate: the GIS button stays disabled until the visitor accepts the T&C.
+		// Ticking the box also drops a short-lived cookie that handle() re-checks
+		// server-side before creating a brand-new account.
+		$html  = '<div class="oc-google-signin oc-google-gate oc-google-gate--locked" data-oc-google-gate>';
+		$html .= '<label class="oc-checkbox oc-google-gate__terms"><input type="checkbox" data-oc-google-terms /><span>' . wp_kses( sprintf( __( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a>.', 'owambe-connect-core' ), esc_url( $terms_url ), esc_url( $privacy_url ) ), [ 'a' => [ 'href' => [], 'target' => [], 'rel' => [] ] ] ) . '</span></label>';
+		$html .= '<div class="oc-google-gate__btn">';
 		// ux_mode=redirect is REQUIRED with data-login_uri: it makes GSI do a
 		// full-page redirect that POSTs the credential to login_uri. Without it
 		// GSI defaults to popup mode, tries to postMessage the token to a null
@@ -289,10 +304,14 @@ class OC_Google_Auth {
 			. ' data-locale="en"'
 			. ' data-logo_alignment="center"'
 			. ' data-text="continue_with"></div>';
-		$html .= '</div>';
+		$html .= '</div>'; // .oc-google-gate__btn
+		$html .= '<p class="oc-google-gate__hint">' . esc_html__( 'Please accept the Terms & Conditions to continue with Google.', 'owambe-connect-core' ) . '</p>';
+		$html .= '</div>'; // .oc-google-signin
 
 		if ( ! self::$script_printed ) {
 			self::$script_printed = true;
+			$html .= '<style>.oc-google-gate__terms{display:flex;gap:8px;align-items:flex-start;justify-content:center;text-align:left;font-size:13px;line-height:1.4;margin:0 auto 10px;max-width:340px;}.oc-google-gate__btn{transition:opacity .15s ease;}.oc-google-gate--locked .oc-google-gate__btn{opacity:.45;pointer-events:none;}.oc-google-gate__hint{display:none;color:#6B6361;font-size:12.5px;margin:8px 0 0;}.oc-google-gate--locked .oc-google-gate__hint{display:block;}</style>';
+			$html .= '<script>(function(){function wire(box){var cb=box.querySelector("[data-oc-google-terms]");if(!cb)return;function sync(){var ok=cb.checked;box.classList.toggle("oc-google-gate--locked",!ok);document.cookie="oc_terms_accepted="+(ok?"1":"")+"; path=/; max-age="+(ok?1800:0)+"; samesite=lax";}cb.addEventListener("change",sync);sync();}function init(){var b=document.querySelectorAll("[data-oc-google-gate]");for(var i=0;i<b.length;i++){wire(b[i]);}}if(document.readyState!=="loading"){init();}else{document.addEventListener("DOMContentLoaded",init);}})();</script>';
 			// Force the widget language via the script's hl param — GSI reads this
 			// (and often ignores data-locale), otherwise it falls back to the
 			// visitor's browser/Google language (e.g. Bengali).

@@ -637,6 +637,21 @@ function oc_page_url( $slug ) {
 }
 
 /**
+ * Client-facing Terms & Conditions URL for the signup/login consent links.
+ * Prefers the `client_terms_url` plugin option (oc_settings); falls back to the
+ * built-in /terms/ page when it's not configured.
+ *
+ * @return string
+ */
+function oc_client_terms_url() {
+	$url = (string) oc_get_setting( 'client_terms_url', '' );
+	if ( '' !== $url ) {
+		return $url;
+	}
+	return oc_page_url( 'terms' );
+}
+
+/**
  * Build a wa.me deep link. Optional $text pre-fills the message so vendors
  * can see the enquiry came from Owambe Connect (Phase 2).
  */

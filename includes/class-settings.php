@@ -52,6 +52,10 @@ class OC_Settings {
 			'stripe_sk'                 => '',
 			'stripe_webhook_secret'     => '',
 			'billing_enabled'           => 0,
+
+			// Legal — client-facing Terms & Conditions URL used by the client
+			// signup/login consent links. Empty falls back to the /terms/ page.
+			'client_terms_url'          => '',
 		];
 	}
 
@@ -165,6 +169,9 @@ class OC_Settings {
 		$out['stripe_sk']                 = isset( $input['stripe_sk'] )             ? sanitize_text_field( $input['stripe_sk'] )             : '';
 		$out['stripe_webhook_secret']     = isset( $input['stripe_webhook_secret'] ) ? sanitize_text_field( $input['stripe_webhook_secret'] ) : '';
 		$out['billing_enabled']           = ! empty( $input['billing_enabled'] ) ? 1 : 0;
+
+		// Legal.
+		$out['client_terms_url'] = isset( $input['client_terms_url'] ) ? esc_url_raw( trim( (string) $input['client_terms_url'] ) ) : '';
 
 		return $out;
 	}
@@ -359,6 +366,11 @@ class OC_Settings {
 						<td><input id="oc-gcsec" type="password" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[google_client_secret]" value="<?php echo esc_attr( $s['google_client_secret'] ); ?>" autocomplete="new-password"/>
 							<p class="description"><?php esc_html_e( 'Not needed for the sign-in button itself — stored for future server-side OAuth flows.', 'owambe-connect-core' ); ?></p></td>
 					</tr>
+						<tr>
+							<th scope="row"><label for="oc-cterms"><?php esc_html_e( 'Client Terms &amp; Conditions URL', 'owambe-connect-core' ); ?></label></th>
+							<td><input id="oc-cterms" type="url" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[client_terms_url]" value="<?php echo esc_attr( $s['client_terms_url'] ); ?>" placeholder="<?php echo esc_attr( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : home_url( '/terms/' ) ); ?>"/>
+								<p class="description"><?php esc_html_e( 'The client signup/login "I accept the Terms & Conditions" links point here. Leave blank to use the built-in /terms/ page.', 'owambe-connect-core' ); ?></p></td>
+						</tr>
 				</tbody></table>
 
 				<h3 class="oc-sub-h">

@@ -105,6 +105,24 @@ $post_url = admin_url( 'admin-post.php' );
 							<label for="oc-cr-pass2"><?php esc_html_e( 'Confirm password', 'owambe-connect-core' ); ?></label>
 							<input id="oc-cr-pass2" type="password" name="password2" required minlength="8" autocomplete="new-password" />
 						</div>
+						<div class="oc-field">
+							<label class="oc-checkbox">
+								<input type="checkbox" name="accept_terms" value="1" required />
+								<span>
+									<?php
+									/* translators: 1: Terms link, 2: Privacy link */
+									printf(
+										wp_kses(
+											__( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a>.', 'owambe-connect-core' ),
+											[ 'a' => [ 'href' => [], 'target' => [], 'rel' => [] ] ]
+										),
+										esc_url( oc_client_terms_url() ),
+										esc_url( oc_page_url( 'privacy' ) )
+									);
+									?>
+								</span>
+							</label>
+						</div>
 						<div class="oc-form__actions">
 							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg oc-btn-block"><?php esc_html_e( 'Create account', 'owambe-connect-core' ); ?></button>
 						</div>
