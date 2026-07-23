@@ -89,6 +89,7 @@ class OC_Plugin {
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_legal_pages' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_auth_pages' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_client_pages' ] );
+			add_action( 'admin_init', [ $this, 'maybe_self_heal_safety_page' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_marketplace_pages' ] );
 		}
 	}
@@ -195,6 +196,26 @@ class OC_Plugin {
 			] );
 		}
 		set_transient( 'oc_client_pages_ok', 1, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Self-heal the /safety/ page (Website Safety Information) for installs that
+	 * predate it, so an uploaded plugin copy repairs itself without re-activation.
+	 */
+	public function maybe_self_heal_safety_page() {
+		if ( get_transient( 'oc_safety_page_ok' ) ) {
+			return;
+		}
+		if ( ! get_page_by_path( 'safety' ) ) {
+			wp_insert_post( [
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => __( 'Website Safety', 'owambe-connect-core' ),
+				'post_name'    => 'safety',
+				'post_content' => '[oc_safety_info]',
+			] );
+		}
+		set_transient( 'oc_safety_page_ok', 1, DAY_IN_SECONDS );
 	}
 
 	/**

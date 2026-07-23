@@ -142,6 +142,11 @@ class OC_Activator {
 				'title'   => __( 'My Dashboard', 'owambe-connect-core' ),
 				'content' => '[oc_client_dashboard]',
 			],
+			[
+				'slug'    => 'safety',
+				'title'   => __( 'Website Safety', 'owambe-connect-core' ),
+				'content' => '[oc_safety_info]',
+			],
 		];
 
 		$slug_to_id = [];

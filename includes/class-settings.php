@@ -56,6 +56,10 @@ class OC_Settings {
 			// Legal — client-facing Terms & Conditions URL used by the client
 			// signup/login consent links. Empty falls back to the /terms/ page.
 			'client_terms_url'          => '',
+
+			// Website Safety — optional intro/notice shown atop the [oc_safety_info]
+			// page. Empty shows just the default safety tips.
+			'safety_intro'              => '',
 		];
 	}
 
@@ -172,6 +176,9 @@ class OC_Settings {
 
 		// Legal.
 		$out['client_terms_url'] = isset( $input['client_terms_url'] ) ? esc_url_raw( trim( (string) $input['client_terms_url'] ) ) : '';
+
+		// Website safety — allow basic HTML (links/formatting) in the intro notice.
+		$out['safety_intro'] = isset( $input['safety_intro'] ) ? wp_kses_post( trim( (string) $input['safety_intro'] ) ) : '';
 
 		return $out;
 	}
@@ -371,6 +378,19 @@ class OC_Settings {
 							<td><input id="oc-cterms" type="url" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[client_terms_url]" value="<?php echo esc_attr( $s['client_terms_url'] ); ?>" placeholder="<?php echo esc_attr( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : home_url( '/terms/' ) ); ?>"/>
 								<p class="description"><?php esc_html_e( 'The client signup/login "I accept the Terms & Conditions" links point here. Leave blank to use the built-in /terms/ page.', 'owambe-connect-core' ); ?></p></td>
 						</tr>
+				</tbody></table>
+
+								<h3 class="oc-sub-h">
+					<span class="dashicons dashicons-shield"></span>
+					<?php esc_html_e( 'Website safety', 'owambe-connect-core' ); ?>
+					<small><?php esc_html_e( 'Intro shown on the [oc_safety_info] page', 'owambe-connect-core' ); ?></small>
+				</h3>
+				<table class="form-table"><tbody>
+					<tr>
+						<th scope="row"><label for="oc-safety-intro"><?php esc_html_e( 'Safety notice / intro', 'owambe-connect-core' ); ?></label></th>
+						<td><textarea id="oc-safety-intro" class="large-text" rows="4" name="<?php echo esc_attr( self::OPTION ); ?>[safety_intro]"><?php echo esc_textarea( $s['safety_intro'] ); ?></textarea>
+							<p class="description"><?php esc_html_e( 'Optional intro shown at the top of the Website Safety Information page (basic HTML allowed). Leave blank to show just the default safety tips.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
 				</tbody></table>
 
 				<h3 class="oc-sub-h">

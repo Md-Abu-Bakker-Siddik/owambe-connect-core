@@ -42,6 +42,7 @@ class OC_Shortcodes {
 		add_shortcode( 'oc_breadcrumb',           [ $this, 'breadcrumb' ] );
 		add_shortcode( 'oc_client_login',         [ $this, 'client_login' ] );
 		add_shortcode( 'oc_client_dashboard',     [ $this, 'client_dashboard' ] );
+		add_shortcode( 'oc_safety_info',          [ $this, 'safety_info' ] );
 
 		// Auto-inject a burgundy breadcrumb band on a small set of seeded
 		// content pages (about, terms, privacy, contact) so they get the
@@ -565,6 +566,19 @@ class OC_Shortcodes {
 			'steps'      => '',
 		], $atts );
 		return oc_get_template( 'shortcode-how-it-works.php', $atts );
+	}
+
+	/**
+	 * Website Safety Information — general safety guidance for clients/visitors.
+	 * Content is controllable via the `safety_intro` option (oc_settings) and the
+	 * `oc_safety_items` filter; the seeded /safety/ page renders this shortcode.
+	 */
+	public function safety_info( $atts = [] ) {
+		$atts = shortcode_atts( [
+			'heading'    => '',
+			'subheading' => '',
+		], $atts );
+		return oc_get_template( 'shortcode-safety-info.php', $atts );
 	}
 
 	public function testimonials( $atts = [] ) {
