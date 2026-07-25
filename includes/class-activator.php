@@ -56,13 +56,28 @@ class OC_Activator {
 			event_id BIGINT(20) UNSIGNED NOT NULL,
 			guest_name VARCHAR(190) NOT NULL DEFAULT '',
 			guest_email VARCHAR(190) NOT NULL DEFAULT '',
-			attending TINYINT(1) NOT NULL DEFAULT 1,
-			guest_count SMALLINT(5) UNSIGNED NOT NULL DEFAULT 1,
+			attending VARCHAR(10) NOT NULL DEFAULT '',
+			guest_count INT(10) UNSIGNED NOT NULL DEFAULT 1,
 			note TEXT NULL,
-			created DATETIME NOT NULL,
+			created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY event_id (event_id)
 		) {$charset};" );
+
+		// dbDelta creates the CURRENT_TIMESTAMP default on a FRESH table, but it
+		// ignores DEFAULT clauses when diffing an EXISTING column — so a site that
+		// created oc_rsvps under the old schema would never get the default.
+		// Enforce it explicitly (no-op once it's already in place).
+		$rsvps = $wpdb->prefix . 'oc_rsvps';
+		$created_default = $wpdb->get_var( $wpdb->prepare(
+			"SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'created'",
+			DB_NAME,
+			$rsvps
+		) );
+		if ( empty( $created_default ) ) {
+			$wpdb->query( "ALTER TABLE `{$rsvps}` MODIFY created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" );
+		}
 	}
 
 	public static function deactivate() {
