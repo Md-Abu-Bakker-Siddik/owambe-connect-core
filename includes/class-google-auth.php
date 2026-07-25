@@ -18,6 +18,9 @@ class OC_Google_Auth {
 
 	const ACTION = 'oc_google_auth';
 
+	/** admin-post action that kicks off the OAuth 2.0 authorization-code flow. */
+	const ACTION_OAUTH_START = 'oc_google_oauth_start';
+
 	/** Google-sub user meta key (stable account link, survives email changes). */
 	const META_SUB = '_oc_google_sub';
 
@@ -31,13 +34,26 @@ class OC_Google_Auth {
 	public function register() {
 		add_action( 'admin_post_nopriv_' . self::ACTION, [ $this, 'handle' ] );
 		add_action( 'admin_post_'        . self::ACTION, [ $this, 'handle' ] );
-		// Clean, query-less callback URL for Google's redirect_uri (admin-post.php
+
+		// OAuth 2.0 authorization-code flow — kicked off by the static
+		// "Log in with Google" button (#oc-google-login-btn).
+		add_action( 'admin_post_nopriv_' . self::ACTION_OAUTH_START, [ $this, 'oauth_start' ] );
+		add_action( 'admin_post_'        . self::ACTION_OAUTH_START, [ $this, 'oauth_start' ] );
+
+		// Clean, query-less callback URLs for Google's redirect_uri (admin-post.php
 		// needs a ?action= query string, which Google's redirect-URI matching
-		// rejects). Same handler; it verifies the token and redirects itself.
+		// rejects). Same handlers; they verify and redirect themselves.
 		add_action( 'rest_api_init', function () {
+			// Legacy GIS credential POST (still used by other templates).
 			register_rest_route( 'oc/v1', '/google-login', [
 				'methods'             => 'POST',
 				'callback'            => [ $this, 'handle' ],
+				'permission_callback' => '__return_true',
+			] );
+			// OAuth 2.0 code-flow redirect_uri — register THIS URL in Google Console.
+			register_rest_route( 'oc/v1', '/google-oauth', [
+				'methods'             => 'GET',
+				'callback'            => [ $this, 'oauth_callback' ],
 				'permission_callback' => '__return_true',
 			] );
 		} );
@@ -68,12 +84,39 @@ class OC_Google_Auth {
 			$this->fail();
 		}
 
+		// 4) Explicit redirect_to (login_uri query string or POST body), if any.
+		$requested = '';
+		if ( isset( $_POST['redirect_to'] ) ) {
+			$requested = (string) wp_unslash( $_POST['redirect_to'] );
+		} elseif ( isset( $_GET['redirect_to'] ) ) {
+			$requested = (string) wp_unslash( $_GET['redirect_to'] );
+		}
+
+		// 5) Provision + log in. GIS enforces the T&C-consent cookie for new users.
+		$this->login_or_create_user( $claims, $requested, true );
+	}
+
+	/**
+	 * Shared account provisioning + login for BOTH the GIS credential handler
+	 * and the OAuth 2.0 code-flow callback. Finds the account by Google sub,
+	 * else links by email (marketplace roles only), else creates a client; then
+	 * sets the auth cookie and redirects. Never returns — always exits.
+	 *
+	 * @param array  $claims        [ 'email','sub','name','given_name' ].
+	 * @param string $redirect_to   Requested post-login URL (validated), or ''.
+	 * @param bool   $require_terms Require the T&C-consent cookie before creating
+	 *                              a brand-new account. The GIS gate sets that
+	 *                              cookie; the static OAuth button has no checkbox
+	 *                              (consent is captured at signup elsewhere), so
+	 *                              it passes false.
+	 */
+	private function login_or_create_user( array $claims, $redirect_to = '', $require_terms = true ) {
 		$email      = $claims['email'];
 		$sub        = $claims['sub'];
 		$name       = $claims['name'];
 		$given_name = $claims['given_name'];
 
-		// 4) Find the account: Google sub first, then link by email, else create.
+		// Find the account: Google sub first, then link by email, else create.
 		$user_id = $this->find_user_by_sub( $sub );
 
 		if ( ! $user_id ) {
@@ -103,10 +146,10 @@ class OC_Google_Auth {
 				$user_id = $existing;
 				update_user_meta( $user_id, self::META_SUB, $sub );
 			} else {
-				// CREATE requires T&C consent — the sign-in gate drops this cookie
-				// only after the visitor ticks "I accept the Terms & Conditions".
-				// Existing users signing in are unaffected (they never reach here).
-				if ( empty( $_COOKIE['oc_terms_accepted'] ) ) {
+				// CREATE requires T&C consent — the GIS sign-in gate drops this
+				// cookie only after the visitor ticks "I accept the Terms &
+				// Conditions". Existing users signing in never reach here.
+				if ( $require_terms && empty( $_COOKIE['oc_terms_accepted'] ) ) {
 					$this->fail( __( 'Please tick "I accept the Terms & Conditions" before continuing with Google.', 'owambe-connect-core' ) );
 				}
 
@@ -136,19 +179,12 @@ class OC_Google_Auth {
 			}
 		}
 
-		// 5) Log them in.
+		// Log them in.
 		wp_set_current_user( $user_id );
 		wp_set_auth_cookie( $user_id, true );
 
-		// 6) Redirect: explicit redirect_to first (arrives via the login_uri
-		//    query string or the POST body), else role-routed dashboard.
-		$requested = '';
-		if ( isset( $_POST['redirect_to'] ) ) {
-			$requested = (string) wp_unslash( $_POST['redirect_to'] );
-		} elseif ( isset( $_GET['redirect_to'] ) ) {
-			$requested = (string) wp_unslash( $_GET['redirect_to'] );
-		}
-		$redirect = $requested ? wp_validate_redirect( $requested, '' ) : '';
+		// Redirect: explicit redirect_to first, else role-routed dashboard.
+		$redirect = $redirect_to ? wp_validate_redirect( $redirect_to, '' ) : '';
 
 		if ( '' === $redirect ) {
 			$user = get_userdata( $user_id );
@@ -163,6 +199,181 @@ class OC_Google_Auth {
 
 		wp_safe_redirect( $redirect );
 		exit;
+	}
+
+	// ─── OAuth 2.0 authorization-code flow ──────────────────────────────────
+
+	/** REST redirect_uri for the code flow — register THIS in Google Console. */
+	public static function oauth_redirect_uri() {
+		return rest_url( 'oc/v1/google-oauth' );
+	}
+
+	/**
+	 * admin-post URL that starts the OAuth flow. The static Google button links
+	 * here (via JS). Empty client ID → is_configured() is false → button inert.
+	 *
+	 * @param string $redirect_to  Post-login destination (round-tripped via state).
+	 * @return string
+	 */
+	public static function oauth_start_url( $redirect_to = '' ) {
+		$args = [ 'action' => self::ACTION_OAUTH_START ];
+		if ( '' !== $redirect_to ) {
+			$args['redirect_to'] = $redirect_to;
+		}
+		return add_query_arg( $args, admin_url( 'admin-post.php' ) );
+	}
+
+	/**
+	 * Step 1 — build Google's authorization URL and 302 the visitor to it.
+	 * Binds the request with a random `state` (transient + browser cookie) and a
+	 * `nonce` (echoed back inside the ID token for replay protection).
+	 */
+	public function oauth_start() {
+		$client_id     = (string) oc_get_setting( 'google_client_id', '' );
+		$client_secret = (string) oc_get_setting( 'google_client_secret', '' );
+		if ( '' === $client_id || '' === $client_secret ) {
+			$this->fail( __( 'Google sign-in isn\'t fully set up yet. Please add the Google Client ID and secret in settings.', 'owambe-connect-core' ) );
+		}
+
+		$this->throttle();
+
+		$state = wp_generate_password( 32, false );
+		$nonce = wp_generate_password( 32, false );
+
+		$requested = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : '';
+
+		// State lives in a transient (source of truth) AND a browser cookie, so
+		// the callback can prove the request started in THIS browser.
+		set_transient( 'oc_goauth_' . $state, [ 'nonce' => $nonce, 'redirect_to' => $requested ], 5 * MINUTE_IN_SECONDS );
+		$this->set_state_cookie( $state, time() + 300 );
+
+		$auth_url = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query( [
+			'client_id'     => $client_id,
+			'redirect_uri'  => self::oauth_redirect_uri(),
+			'response_type' => 'code',
+			'scope'         => 'openid email profile',
+			'state'         => $state,
+			'nonce'         => $nonce,
+			'access_type'   => 'online',
+			'prompt'        => 'select_account',
+		], '', '&', PHP_QUERY_RFC3986 );
+
+		wp_redirect( $auth_url ); // external URL — wp_safe_redirect would strip it.
+		exit;
+	}
+
+	/**
+	 * Step 2 — Google redirects here with ?code&state. Validate state, exchange
+	 * the code for tokens (Client ID + secret), verify the ID token + nonce,
+	 * then provision/login. REST GET callback.
+	 *
+	 * @param WP_REST_Request $request
+	 */
+	public function oauth_callback( $request ) {
+		if ( $request->get_param( 'error' ) ) {
+			$this->fail();
+		}
+		$code  = (string) $request->get_param( 'code' );
+		$state = (string) $request->get_param( 'state' );
+		if ( '' === $code || '' === $state ) {
+			$this->fail();
+		}
+
+		// State must match BOTH the browser cookie and a live transient.
+		$cookie_state = isset( $_COOKIE['oc_goauth_state'] ) ? (string) wp_unslash( $_COOKIE['oc_goauth_state'] ) : '';
+		$this->set_state_cookie( '', time() - 3600 ); // one-shot: clear it now.
+		if ( '' === $cookie_state || ! hash_equals( $cookie_state, $state ) ) {
+			$this->fail();
+		}
+		$stored = get_transient( 'oc_goauth_' . $state );
+		if ( ! is_array( $stored ) ) {
+			$this->fail();
+		}
+		delete_transient( 'oc_goauth_' . $state );
+
+		$expected_nonce = (string) ( isset( $stored['nonce'] ) ? $stored['nonce'] : '' );
+		$redirect_to    = (string) ( isset( $stored['redirect_to'] ) ? $stored['redirect_to'] : '' );
+
+		$this->throttle();
+
+		// Exchange the one-time code for tokens (server-to-server, TLS + secret).
+		$tokens = $this->exchange_code( $code );
+		if ( ! is_array( $tokens ) || empty( $tokens['id_token'] ) ) {
+			$this->fail();
+		}
+		$id_token = (string) $tokens['id_token'];
+
+		// Verify against Google (aud / exp / email_verified → claims) …
+		$claims = $this->verify_id_token( $id_token );
+		if ( ! $claims ) {
+			$this->fail();
+		}
+		// … and confirm the nonce we sent is echoed back (replay protection).
+		$local = $this->jwt_claims( $id_token );
+		if ( '' === $expected_nonce || ! is_array( $local ) || ! isset( $local['nonce'] ) || ! hash_equals( $expected_nonce, (string) $local['nonce'] ) ) {
+			$this->fail();
+		}
+
+		// Static button has no T&C checkbox → don't require the consent cookie.
+		$this->login_or_create_user( $claims, $redirect_to, false );
+	}
+
+	/** Exchange an authorization code for tokens. @return array|false */
+	private function exchange_code( $code ) {
+		$res = wp_remote_post( 'https://oauth2.googleapis.com/token', [
+			'timeout' => 15,
+			'body'    => [
+				'code'          => $code,
+				'client_id'     => (string) oc_get_setting( 'google_client_id', '' ),
+				'client_secret' => (string) oc_get_setting( 'google_client_secret', '' ),
+				'redirect_uri'  => self::oauth_redirect_uri(),
+				'grant_type'    => 'authorization_code',
+			],
+		] );
+		if ( is_wp_error( $res ) ) {
+			return false;
+		}
+		if ( 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
+			return false;
+		}
+		$body = json_decode( wp_remote_retrieve_body( $res ), true );
+		return is_array( $body ) ? $body : false;
+	}
+
+	/** Base64url-decode a JWT's payload segment. @return array|null */
+	private function jwt_claims( $jwt ) {
+		$parts = explode( '.', $jwt );
+		if ( 3 !== count( $parts ) ) {
+			return null;
+		}
+		$seg = strtr( $parts[1], '-_', '+/' );
+		$pad = strlen( $seg ) % 4;
+		if ( $pad ) {
+			$seg .= str_repeat( '=', 4 - $pad );
+		}
+		$json = base64_decode( $seg, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		if ( false === $json ) {
+			return null;
+		}
+		$data = json_decode( $json, true );
+		return is_array( $data ) ? $data : null;
+	}
+
+	/** Set (or clear) the SameSite=Lax state cookie, PHP-version-aware. */
+	private function set_state_cookie( $value, $expires ) {
+		$secure = is_ssl();
+		if ( PHP_VERSION_ID >= 70300 ) {
+			setcookie( 'oc_goauth_state', $value, [
+				'expires'  => $expires,
+				'path'     => '/',
+				'secure'   => $secure,
+				'httponly' => true,
+				'samesite' => 'Lax',
+			] );
+		} else {
+			// Older PHP: smuggle SameSite via the path argument.
+			setcookie( 'oc_goauth_state', $value, $expires, '/; samesite=Lax', '', $secure, true );
+		}
 	}
 
 	// ─── Token verification (fail closed) ───────────────────────────────────
@@ -299,11 +510,11 @@ class OC_Google_Auth {
 			. ' data-type="standard"'
 			. ' data-theme="outline"'
 			. ' data-size="large"'
-			. ' data-shape="pill"'
-			. ' data-width="340"'
+			. ' data-shape="rectangular"'
+			. ' data-width="360"'
 			. ' data-locale="en"'
-			. ' data-logo_alignment="center"'
-			. ' data-text="continue_with"></div>';
+			. ' data-logo_alignment="left"'
+			. ' data-text="signin_with"></div>';
 		$html .= '</div>'; // .oc-google-gate__btn
 		$html .= '<p class="oc-google-gate__hint">' . esc_html__( 'Please accept the Terms & Conditions to continue with Google.', 'owambe-connect-core' ) . '</p>';
 		$html .= '</div>'; // .oc-google-signin

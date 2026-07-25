@@ -35,18 +35,23 @@ $client_register_url = add_query_arg(
 	),
 	oc_page_url( 'client-login' )
 );
+
+// Inline eye icon for the show/hide password toggles (stored once to avoid duplication).
+$oc_eye_svg = '<svg class="oc-eye" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+// OAuth 2.0 start URL for the static "Log in with Google" button (wired by JS
+// below). Empty until a Google Client ID is saved in settings — button stays inert.
+$google_oauth_url = ( class_exists( 'OC_Google_Auth' ) && OC_Google_Auth::is_configured() )
+	? OC_Google_Auth::oauth_start_url( $redirect_url ?: oc_page_url( 'client-dashboard' ) )
+	: '';
 ?>
 <section class="oc-section oc-auth">
 	<div class="oc-container oc-auth__container">
-		<header class="oc-auth__head">
-			<h1 class="oc-auth__title"><?php echo esc_html( $heading ); ?></h1>
-			<?php if ( $subheading ) : ?><p class="oc-auth__lead"><?php echo esc_html( $subheading ); ?></p><?php endif; ?>
-		</header>
 
 		<div class="oc-auth__body">
 
 			<div class="oc-auth__form-wrap">
-				<!-- Tab Navigation (segmented, inside the form panel) -->
+				<!-- Tab Navigation (segmented, at the very top) -->
 				<div class="oc-auth__tabs-nav" role="tablist">
 					<a href="<?php echo esc_url( add_query_arg( 'tab', 'vendor', $login_page_url ) ); ?>"
 						class="oc-auth__tab-link <?php echo 'vendor' === $active_tab ? 'is-active' : ''; ?>"
@@ -60,6 +65,12 @@ $client_register_url = add_query_arg(
 						data-tab="client">
 						<?php esc_html_e( 'Client', 'owambe-connect-core' ); ?>
 					</a>
+				</div>
+
+				<!-- Title + subtitle (shared across both tabs) -->
+				<div class="oc-auth__intro">
+					<h2 class="oc-auth__form-title"><?php esc_html_e( 'Sign in to your Account', 'owambe-connect-core' ); ?></h2>
+					<p class="oc-auth__form-sub"><?php esc_html_e( 'Use your email to log in to your account', 'owambe-connect-core' ); ?></p>
 				</div>
 
 				<?php if ( $err ) : ?>
@@ -76,19 +87,22 @@ $client_register_url = add_query_arg(
 						<?php wp_nonce_field( OC_Dashboard::ACTION_LOGIN, 'oc_login_nonce' ); ?>
 
 						<div class="oc-field">
-							<label for="oc-log-vendor"><?php esc_html_e( 'Email', 'owambe-connect-core' ); ?></label>
+							<label for="oc-log-vendor"><?php esc_html_e( 'Email', 'owambe-connect-core' ); ?> <span class="oc-req" aria-hidden="true">*</span></label>
 							<input id="oc-log-vendor" type="email" name="log" required autocomplete="email" />
 						</div>
 						<div class="oc-field">
-							<label for="oc-pwd-vendor"><?php esc_html_e( 'Password', 'owambe-connect-core' ); ?></label>
-							<input id="oc-pwd-vendor" type="password" name="pwd" required autocomplete="current-password" />
+							<label for="oc-pwd-vendor"><?php esc_html_e( 'Password', 'owambe-connect-core' ); ?> <span class="oc-req" aria-hidden="true">*</span></label>
+							<div class="oc-pwd">
+								<input id="oc-pwd-vendor" type="password" name="pwd" required autocomplete="current-password" />
+								<button type="button" class="oc-pwd-toggle" data-oc-pwd-toggle aria-label="<?php esc_attr_e( 'Show password', 'owambe-connect-core' ); ?>"><?php echo $oc_eye_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+							</div>
 						</div>
 						<div class="oc-field oc-field--row">
 							<label class="oc-checkbox"><input type="checkbox" name="rememberme" value="1" /> <span><?php esc_html_e( 'Remember me', 'owambe-connect-core' ); ?></span></label>
 							<a class="oc-link" href="<?php echo esc_url( wp_lostpassword_url( add_query_arg( 'tab', 'vendor', $login_page_url ) ) ); ?>"><?php esc_html_e( 'Forgot password?', 'owambe-connect-core' ); ?></a>
 						</div>
 						<div class="oc-form__actions">
-							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg oc-btn-block"><?php echo esc_html( $button_text ); ?></button>
+							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg oc-btn-block"><?php esc_html_e( 'Login', 'owambe-connect-core' ); ?></button>
 						</div>
 						<p class="oc-help oc-help--center">
 							<?php esc_html_e( 'New vendor?', 'owambe-connect-core' ); ?>
@@ -97,53 +111,9 @@ $client_register_url = add_query_arg(
 					</form>
 				</div>
 
-				<!-- Client panel — Google sign-in + native email/password login and a
+				<!-- Client panel — email/password sign-in, then Google, then a
 				     link to create an account (for clients without a Google account). -->
 				<div class="oc-auth__panel" data-panel="client" <?php echo 'client' === $active_tab ? '' : 'hidden'; ?>>
-					<div class="oc-auth__client-google">
-						<div class="oc-auth__signin-card">
-							<span class="oc-auth__signin-badge" aria-hidden="true">
-								<svg viewBox="0 0 24 24" width="30" height="30">
-									<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-									<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-									<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-									<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-								</svg>
-							</span>
-							<h2 class="oc-auth__signin-title"><?php esc_html_e( 'Continue with Google', 'owambe-connect-core' ); ?></h2>
-							<p class="oc-auth__signin-sub"><?php esc_html_e( 'Sign in or create your account in one click — no password to remember.', 'owambe-connect-core' ); ?></p>
-
-							<div class="oc-auth__google-wrapper">
-<?php
-$is_configured = class_exists( 'OC_Google_Auth' ) && OC_Google_Auth::is_configured();
-if ( $is_configured ) {
-	echo OC_Google_Auth::button_html( $redirect_url ?: oc_page_url( 'client-dashboard' ) ); // phpcs:ignore
-} else {
-	?>
-	<button class="oc-auth__google-button oc-auth__google-button--placeholder" disabled type="button">
-		<svg viewBox="0 0 24 24" width="20" height="20" style="margin-right: 8px; display: inline-block; vertical-align: middle;">
-			<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-			<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-			<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-			<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-		</svg>
-		<span style="vertical-align: middle;">
-			<?php esc_html_e( 'Sign in with Google', 'owambe-connect-core' ); ?>
-		</span>
-	</button>
-	<p class="oc-auth__config-notice">
-		<?php esc_html_e( 'Google Sign-In is being set up. Please try again shortly.', 'owambe-connect-core' ); ?>
-	</p>
-	<?php
-}
-?>
-							</div>
-
-							<p class="oc-auth__signin-foot"><?php esc_html_e( 'Free to join · We never post on your behalf', 'owambe-connect-core' ); ?></p>
-						</div>
-					</div>
-					<div class="oc-auth__divider" aria-hidden="true"><span><?php esc_html_e( 'or use your email', 'owambe-connect-core' ); ?></span></div>
-					<!-- Client panel — native email/password sign-in (alongside Google). -->
 					<form class="oc-form oc-auth__form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="<?php echo esc_attr( OC_Client::ACTION_LOGIN ); ?>" />
 						<?php if ( $redirect_url ) : ?>
@@ -151,25 +121,41 @@ if ( $is_configured ) {
 						<?php endif; ?>
 						<?php wp_nonce_field( OC_Client::ACTION_LOGIN, 'oc_client_login_nonce' ); ?>
 						<div class="oc-field">
-							<label for="oc-log-client"><?php esc_html_e( 'Email', 'owambe-connect-core' ); ?></label>
+							<label for="oc-log-client"><?php esc_html_e( 'Email', 'owambe-connect-core' ); ?> <span class="oc-req" aria-hidden="true">*</span></label>
 							<input id="oc-log-client" type="email" name="log" required autocomplete="email" />
 						</div>
 						<div class="oc-field">
-							<label for="oc-pwd-client"><?php esc_html_e( 'Password', 'owambe-connect-core' ); ?></label>
-							<input id="oc-pwd-client" type="password" name="pwd" required autocomplete="current-password" />
+							<label for="oc-pwd-client"><?php esc_html_e( 'Password', 'owambe-connect-core' ); ?> <span class="oc-req" aria-hidden="true">*</span></label>
+							<div class="oc-pwd">
+								<input id="oc-pwd-client" type="password" name="pwd" required autocomplete="current-password" />
+								<button type="button" class="oc-pwd-toggle" data-oc-pwd-toggle aria-label="<?php esc_attr_e( 'Show password', 'owambe-connect-core' ); ?>"><?php echo $oc_eye_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+							</div>
 						</div>
 						<div class="oc-field oc-field--row">
 							<label class="oc-checkbox"><input type="checkbox" name="rememberme" value="1" /> <span><?php esc_html_e( 'Remember me', 'owambe-connect-core' ); ?></span></label>
 							<a class="oc-link" href="<?php echo esc_url( wp_lostpassword_url( add_query_arg( 'tab', 'client', $login_page_url ) ) ); ?>"><?php esc_html_e( 'Forgot password?', 'owambe-connect-core' ); ?></a>
 						</div>
 						<div class="oc-form__actions">
-							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg oc-btn-block"><?php esc_html_e( 'Sign in', 'owambe-connect-core' ); ?></button>
+							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg oc-btn-block"><?php esc_html_e( 'Login', 'owambe-connect-core' ); ?></button>
 						</div>
-						<p class="oc-help oc-help--center">
-							<?php esc_html_e( 'New to Owambe Connect?', 'owambe-connect-core' ); ?>
-							<a href="<?php echo esc_url( $client_register_url ); ?>"><?php esc_html_e( 'Create an account', 'owambe-connect-core' ); ?></a>
-						</p>
 					</form>
+
+					<!-- Static "Log in with Google" button (standard HTML — no GIS widget). -->
+					<button type="button" id="oc-google-login-btn" class="oc-btn-google">
+						<span class="oc-btn-google__icon" aria-hidden="true">
+							<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+								<path fill="#4285F4" d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+								<path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.859-3.048.859-2.344 0-4.328-1.583-5.036-3.71H.957v2.332A9 9 0 0 0 9 18z"/>
+								<path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A9 9 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+								<path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.346l2.582-2.581C13.463.891 11.426 0 9 0A9 9 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+							</svg>
+						</span>
+						<span class="oc-btn-google__label"><?php esc_html_e( 'Log in with Google', 'owambe-connect-core' ); ?></span>
+					</button>
+
+					<p class="oc-help oc-help--center oc-auth__create">
+						<a href="<?php echo esc_url( $client_register_url ); ?>"><?php esc_html_e( 'Create an account Signup', 'owambe-connect-core' ); ?></a>
+					</p>
 				</div>
 			</div>
 
@@ -314,178 +300,162 @@ if ( $is_configured ) {
 	margin: 0;
 }
 
-/* The active panel grows to fill the card and centres its content, so the
-   short login form sits balanced against the taller info card. */
+/* The active panel fills the card; content is top-aligned under the shared
+   title/subtitle for a clean, standard sign-in flow. */
 .oc-auth__panel:not([hidden]) {
 	flex: 1 1 auto;
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
+	justify-content: flex-start;
 }
 .oc-auth__panel[hidden],
 .oc-auth__info-panel[hidden] { display: none; }
 
-/* Client tab: form-wrap is the card now, so flatten the inner sign-in card. */
-.oc-auth .oc-auth__client-google { padding: 0; }
-.oc-auth .oc-auth__signin-card {
-	background: transparent;
-	border: 0;
-	box-shadow: none;
-	border-radius: 0;
-	padding: 0;
-	max-width: none;
-}
-
-/* Client Google-Only Section */
-.oc-auth__client-google {
+/* Shared title + subtitle, directly beneath the Vendor/Client switcher. */
+.oc-auth__intro {
 	text-align: center;
-	padding: 1rem 0;
-	display: flex;
-	justify-content: center;
+	margin: 0 0 1.5rem;
+}
+.oc-auth__form-title {
+	font-size: 1.5rem;
+	line-height: 1.25;
+	font-weight: 700;
+	color: var(--oc-ink, #1F1B1A);
+	margin: 0 0 0.35rem;
+}
+.oc-auth__form-sub {
+	font-size: 14.5px;
+	color: #6B6361;
+	line-height: 1.5;
+	margin: 0;
 }
 
-/* Dominant, elevated sign-in card */
-.oc-auth__signin-card {
-	width: 100%;
-	max-width: 460px;
-	margin: 0 auto;
-	padding: 2.75rem 2.25rem 2.25rem;
-	background: #fff;
-	border: 1px solid var(--oc-border, #E4DDD2);
-	border-top: 4px solid var(--oc-burgundy, #6E0F2C);
-	border-radius: 18px;
-	box-shadow: 0 18px 40px rgba(110, 15, 44, 0.10);
-	text-align: center;
-}
+/* Required-field asterisk on labels. */
+.oc-req { color: #C0392B; font-weight: 700; }
 
-.oc-auth__signin-badge {
+/* Password field with an inline show/hide toggle. */
+.oc-pwd { position: relative; display: block; }
+.oc-pwd > input { width: 100%; padding-right: 46px; }
+.oc-pwd-toggle {
+	position: absolute;
+	top: 50%;
+	right: 6px;
+	transform: translateY(-50%);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 68px;
-	height: 68px;
-	border-radius: 50%;
-	background: #FAF7F2;
-	border: 1px solid var(--oc-border, #E4DDD2);
-	margin-bottom: 1.25rem;
-	box-shadow: 0 2px 6px rgba(31, 27, 26, 0.06);
-}
-
-.oc-auth__signin-title {
-	font-size: 1.7rem;
-	line-height: 1.2;
-	color: var(--oc-burgundy, #6E0F2C);
-	margin: 0 0 0.5rem;
-	font-weight: 700;
-}
-
-.oc-auth__signin-sub {
-	font-size: 15px;
-	color: #6B6361;
-	line-height: 1.6;
-	margin: 0 auto 1.75rem;
-	max-width: 320px;
-}
-
-.oc-auth__signin-foot {
-	font-size: 13px;
-	color: #9A938C;
-	margin: 1.25rem 0 0;
-}
-
-.oc-auth__google-wrapper {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 1rem;
+	width: 34px;
+	height: 34px;
+	padding: 0;
 	margin: 0;
-	min-height: 50px;
+	background: transparent;
+	border: 0;
+	border-radius: 8px;
+	color: #8A827C;
+	cursor: pointer;
+	transition: color 0.15s ease, background 0.15s ease;
+}
+.oc-pwd-toggle:hover { color: var(--oc-burgundy, #6E0F2C); background: rgba(110, 15, 44, 0.06); }
+.oc-pwd-toggle:focus-visible { outline: 2px solid var(--oc-gold, #C9A961); outline-offset: 1px; }
+.oc-pwd-toggle.is-on { color: var(--oc-burgundy, #6E0F2C); }
+
+/* ── Modern form fields ─────────────────────────────────────────────────── */
+.oc-auth .oc-field { margin: 0 0 1.05rem; }
+.oc-auth .oc-field > label {
+	display: block;
+	font-weight: 600;
+	font-size: 13.5px;
+	color: #3A3330;
+	margin: 0 0 6px;
+}
+.oc-auth .oc-field input[type="email"],
+.oc-auth .oc-field input[type="password"],
+.oc-auth .oc-field input[type="text"] {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 12px 14px;
+	font-size: 15px;
+	line-height: 1.3;
+	color: #1F1B1A;
+	background: #FAF8F5;
+	border: 1px solid var(--oc-border, #E4DDD2);
+	border-radius: 10px;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.oc-auth .oc-field input::placeholder { color: #B4ABA3; }
+.oc-auth .oc-field input:focus {
+	outline: none;
+	background: #fff;
+	border-color: var(--oc-burgundy, #6E0F2C);
+	box-shadow: 0 0 0 3px rgba(110, 15, 44, 0.10);
 }
 
-/* Ensure Google button from OC_Google_Auth displays properly */
-.oc-auth__google-wrapper button,
-.oc-auth__google-wrapper a[role="button"] {
-	display: inline-flex !important;
+/* Remember me (left) / Forgot password (right) row */
+.oc-auth .oc-field--row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 1.35rem;
+}
+
+/* Primary "Login" button — full width, modern radius */
+.oc-auth .oc-form__actions { margin: 0 0 0.9rem; }
+.oc-auth .oc-btn-primary {
+	border-radius: 10px;
+	font-weight: 600;
+}
+
+/* Secondary "Log in with Google" — static button, full-width, white/bordered,
+   matching the inputs and primary button. Colour G icon left, text centred. */
+.oc-btn-google {
+	position: relative;
+	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 12px 24px !important;
-	min-width: 280px;
-	background: white !important;
-	border: 1px solid #dadce0 !important;
-	border-radius: 4px !important;
-	font-size: 16px;
-	font-weight: 500;
-	color: #3c4043 !important;
+	width: 100%;
+	box-sizing: border-box;
+	min-height: 48px;
+	padding: 10px 16px;
+	background: #FFFFFF;
+	border: 1px solid #CBD5E1;
+	border-radius: 10px;
+	color: #3A3330;
+	font-size: 15px;
+	font-weight: 600;
+	line-height: 1.3;
 	cursor: pointer;
-	transition: all 0.2s ease;
-	text-decoration: none !important;
-	white-space: nowrap;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
-.oc-auth__google-button {
-	display: inline-flex !important;
-	align-items: center !important;
-	justify-content: center !important;
-	padding: 12px 24px !important;
-	min-width: 280px !important;
-	background: white !important;
-	border: 1px solid #dadce0 !important;
-	border-radius: 4px !important;
-	font-size: 16px !important;
-	font-weight: 500 !important;
-	color: #3c4043 !important;
-	transition: all 0.2s ease;
-	white-space: nowrap !important;
-	position: relative !important;
-	z-index: 10 !important;
-	visibility: visible !important;
+.oc-btn-google:hover {
+	background: #F8FAFC;
+	border-color: #B7C2D0;
+	box-shadow: 0 1px 3px rgba(31, 27, 26, 0.08);
 }
-
-.oc-auth__google-button:not(:disabled):hover,
-.oc-auth__google-wrapper button:not(:disabled):hover {
-	background: #f8f9fa !important;
-	box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
-}
-
-.oc-auth__google-button:focus-visible {
+.oc-btn-google:focus-visible {
 	outline: 2px solid var(--oc-gold, #C9A961);
 	outline-offset: 2px;
 }
-
-.oc-auth__google-button--placeholder:disabled {
-	opacity: 0.6;
-	cursor: not-allowed;
+.oc-btn-google__icon {
+	position: absolute;
+	left: 16px;
+	top: 50%;
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
 }
+.oc-btn-google__label { text-align: center; }
 
-.oc-auth__config-notice {
-	font-size: 13px;
-	color: #999;
-	margin: 0.5rem 0 0;
-}
+.oc-auth__create { margin-top: 1.5rem; margin-bottom: 0; }
 
 /* Mobile responsive */
 @media (max-width: 600px) {
-	.oc-auth__tabs-nav {
-		margin-bottom: 1.5rem;
-	}
-
+	.oc-auth__tabs-nav { margin-bottom: 1.5rem; }
 	.oc-auth__tab-link {
 		padding: 0.875rem 0.5rem;
 		font-size: 14px;
 	}
-
-	.oc-auth__client-google {
-		padding: 0.5rem 0;
-	}
-
-	.oc-auth__signin-card {
-		padding: 2rem 1.5rem;
-		border-radius: 14px;
-	}
-
-	.oc-auth__signin-title {
-		font-size: 1.45rem;
-	}
+	.oc-auth__form-title { font-size: 1.35rem; }
 }
 </style>
 
@@ -522,5 +492,26 @@ if ( $is_configured ) {
 			}
 		} );
 	} );
+
+	/* Show/hide password toggles. */
+	root.querySelectorAll( '[data-oc-pwd-toggle]' ).forEach( function ( btn ) {
+		btn.addEventListener( 'click', function () {
+			var wrap = btn.closest( '.oc-pwd' );
+			var input = wrap ? wrap.querySelector( 'input' ) : null;
+			if ( ! input ) { return; }
+			var reveal = input.type === 'password';
+			input.type = reveal ? 'text' : 'password';
+			btn.classList.toggle( 'is-on', reveal );
+			btn.setAttribute( 'aria-label', reveal ? 'Hide password' : 'Show password' );
+		} );
+	} );
+
+	/* Static "Log in with Google" button → OAuth 2.0 authorization-code flow.
+	   URL is empty (button inert) until a Google Client ID is saved in settings. */
+	var gBtn = document.getElementById( 'oc-google-login-btn' );
+	var gUrl = <?php echo wp_json_encode( $google_oauth_url ); ?>;
+	if ( gBtn && gUrl ) {
+		gBtn.addEventListener( 'click', function () { window.location.href = gUrl; } );
+	}
 } )();
 </script>
