@@ -696,7 +696,14 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 				var syncNavOffset = function () {
 					var h = findStickyHeader();
 					var offset = 0;
-					if (h) { var r = h.getBoundingClientRect(); offset = Math.max(0, Math.round(r.top)) + Math.round(r.height); }
+					if (h) {
+						// Use the header's resolved sticky `top` (where it PINS) — not its
+						// current viewport position, which the WP admin bar shifts down 32px
+						// and would otherwise leave a gap above the pinned nav.
+						var stickyTop = parseFloat(getComputedStyle(h).top);
+						if (isNaN(stickyTop)) stickyTop = 0;
+						offset = Math.max(0, Math.round(stickyTop)) + Math.round(h.getBoundingClientRect().height);
+					}
 					vpNav.style.top = offset + 'px';
 					var margin = offset + Math.round(vpNav.getBoundingClientRect().height) + 8;
 					root.querySelectorAll('.oc-vp__section').forEach(function (s) { s.style.scrollMarginTop = margin + 'px'; });

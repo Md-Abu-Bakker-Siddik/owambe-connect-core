@@ -62,6 +62,10 @@ class OC_Business_Card {
 			$format = 'pdf';
 		}
 
+		// Inline preview mode — serves the PNG without the attachment header so
+		// the dashboard's Business Card panel can show it in an <img>.
+		$preview = ! empty( $_GET['preview'] );
+
 		if ( ! function_exists( 'imagecreatetruecolor' ) ) {
 			wp_die( esc_html__( 'Image functions unavailable on this server.', 'owambe-connect-core' ) );
 		}
@@ -78,10 +82,10 @@ class OC_Business_Card {
 			$slug .= '-bw';
 		}
 
-		if ( 'pdf' === $format ) {
+		if ( 'pdf' === $format && ! $preview ) {
 			$this->output_pdf( $img, $slug );
 		}
-		$this->output_png( $img, $slug );
+		$this->output_png( $img, $slug, $preview );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -91,90 +95,93 @@ class OC_Business_Card {
 	/**
 	 * Draw the full card and return the GD image resource.
 	 *
-	 * Futuristic "2050" look: a deep vertical burgundy gradient (#800020 →
-	 * near-black burgundy) with gold geometric accents — corner brackets, a
-	 * faint concentric halo top-right, and a hairline column divider — a
-	 * gold-framed logo plate, light typography, and a gold-framed QR panel.
+	 * Premium "framed" look modelled on the client's reference: a cream body
+	 * with burgundy top/bottom bars and a burgundy right column, a gold arc
+	 * sweeping the top-right corner, a gold-framed rounded logo box, the
+	 * business name in burgundy serif over a gold letterspaced category line
+	 * and a location pin, contact rows as burgundy circular icons with gold
+	 * hairline dividers, and the right column stacking a phone glyph,
+	 * "SCAN TO VIEW PROFILE", a white rounded QR panel, the vendor ID and
+	 * the "LISTED ON Owambe Connect" footer. Card corners are rounded with
+	 * true transparency (the PDF path flattens onto white).
 	 *
 	 * @param int    $post_id Vendor post ID.
-	 * @param string $variant 'color' (default gold-on-burgundy) or 'bw' (clean
-	 *                        white background, black text, gray accents).
+	 * @param string $variant 'color' (cream + burgundy + gold) or 'bw'
+	 *                        (white + near-black, monochrome).
 	 * @return GdImage
 	 */
 	public function render( $post_id, $variant = 'color' ) {
 		$img = imagecreatetruecolor( self::W, self::H );
+		imagesavealpha( $img, true );
+		imagealphablending( $img, false );
+		$clear = imagecolorallocatealpha( $img, 0, 0, 0, 127 );
+		imagefilledrectangle( $img, 0, 0, self::W - 1, self::H - 1, $clear );
 		imagealphablending( $img, true );
 
 		// ── Palette ──────────────────────────────────────────────────────
-		// One layout, two skins: the default gold-on-burgundy, and a clean
-		// black-&-white variant (white background, black text, gray accents).
+		// One layout, two skins: cream/burgundy/gold, or white/near-black.
 		$bw = ( 'bw' === $variant );
 
-		$white = imagecolorallocate( $img, 255, 255, 255 ); // plate + QR panel fill (both variants)
+		$white = imagecolorallocate( $img, 255, 255, 255 );
 		$gray  = imagecolorallocate( $img, 150, 150, 150 ); // QR placeholder text
 
 		if ( $bw ) {
-			$gold     = imagecolorallocate( $img, 112, 112, 112 ); // accent → mid gray
-			$goldlt   = imagecolorallocate( $img, 45, 45, 45 );    // address + vendor number → dark
-			$cream    = imagecolorallocate( $img, 96, 96, 96 );    // secondary text → gray
-			$rose     = imagecolorallocate( $img, 132, 132, 132 ); // muted caption
-			$burg     = imagecolorallocate( $img, 26, 26, 26 );    // monogram → near-black
-			$ink      = imagecolorallocate( $img, 26, 26, 26 );    // primary text → near-black
-			$icon_rgb = [ 55, 55, 55 ];
-			$halo     = imagecolorallocatealpha( $img, 120, 120, 120, 120 );
-			$divc     = imagecolorallocatealpha( $img, 120, 120, 120, 98 );
+			$body     = $white;                                      // card body
+			$panel    = imagecolorallocate( $img, 28, 28, 28 );      // bars + right column
+			$gold     = imagecolorallocate( $img, 148, 148, 148 );   // accents → mid gray
+			$golddeep = imagecolorallocate( $img, 96, 96, 96 );      // tagline / dividers
+			$goldlt   = imagecolorallocate( $img, 214, 214, 214 );   // vendor number on panel
+			$creamtx  = imagecolorallocate( $img, 210, 210, 210 );   // captions on panel
+			$dimtx    = imagecolorallocate( $img, 150, 150, 150 );   // "LISTED ON"
+			$ink      = imagecolorallocate( $img, 26, 26, 26 );      // primary text on body
+			$muted    = imagecolorallocate( $img, 106, 106, 106 );   // row values
+			$namec    = $ink;
+			$circle   = [ 28, 28, 28 ];                              // contact circle fill
+			$divc     = imagecolorallocatealpha( $img, 96, 96, 96, 80 );
 		} else {
-			$gold     = imagecolorallocate( $img, 201, 169, 97 );  // #C9A961
-			$goldlt   = imagecolorallocate( $img, 226, 199, 143 ); // brighter gold
-			$cream    = imagecolorallocate( $img, 235, 224, 205 );
-			$rose     = imagecolorallocate( $img, 205, 170, 178 ); // dusty rose sub-text
-			$burg     = imagecolorallocate( $img, 128, 0, 32 );    // #800020 monogram
-			$ink      = $white;                                    // primary text is white on burgundy
-			$icon_rgb = [ 201, 169, 97 ];
-			$halo     = imagecolorallocatealpha( $img, 201, 169, 97, 114 );
-			$divc     = imagecolorallocatealpha( $img, 201, 169, 97, 82 );
+			$body     = imagecolorallocate( $img, 247, 240, 228 );   // warm ivory
+			$panel    = imagecolorallocate( $img, 110, 15, 44 );     // #6E0F2C burgundy
+			$gold     = imagecolorallocate( $img, 201, 169, 97 );    // #C9A961
+			$golddeep = imagecolorallocate( $img, 176, 138, 62 );    // deeper gold text
+			$goldlt   = imagecolorallocate( $img, 226, 199, 143 );   // vendor number
+			$creamtx  = imagecolorallocate( $img, 240, 228, 208 );   // captions on burgundy
+			$dimtx    = imagecolorallocate( $img, 205, 170, 178 );   // dusty rose caption
+			$ink      = imagecolorallocate( $img, 44, 36, 33 );      // primary text on cream
+			$muted    = imagecolorallocate( $img, 122, 106, 95 );    // row values
+			$namec    = $panel;                                      // name in burgundy
+			$circle   = [ 110, 15, 44 ];
+			$divc     = imagecolorallocatealpha( $img, 176, 138, 62, 70 );
 		}
 
-		// ── Background ───────────────────────────────────────────────────
-		if ( $bw ) {
-			imagefilledrectangle( $img, 0, 0, self::W - 1, self::H - 1, $white );
-		} else {
-			// Deep vertical burgundy gradient (top #800020 → near-black burgundy).
-			for ( $yy = 0; $yy < self::H; $yy++ ) {
-				$t = $yy / ( self::H - 1 );
-				$r = (int) round( 122 + ( 30 - 122 ) * $t );
-				$b = (int) round( 30 + ( 12 - 30 ) * $t );
-				imageline( $img, 0, $yy, self::W - 1, $yy, imagecolorallocate( $img, $r, 0, $b ) );
-			}
-		}
+		// ── Card structure ───────────────────────────────────────────────
+		// Burgundy rounded slab first (its corners become the card corners),
+		// then the cream body strip, then the right column back on top.
+		$this->fill_round_rect( $img, 0, 0, self::W - 1, self::H - 1, 36, $panel );
+		imagefilledrectangle( $img, 0, 44, self::W - 1, 551, $body );
+		$panel_x = 762;
+		imagefilledrectangle( $img, $panel_x, 44, self::W - 1, 551, $panel );
 
-		// Faint concentric halo, top-right.
-		for ( $i = 0; $i < 3; $i++ ) {
-			$d = 300 + $i * 130;
-			imageellipse( $img, 1015, 24, $d, $d, $halo );
-		}
+		// Gold arc sweeping the top-right corner (a ring: gold disc overdrawn
+		// by a panel-coloured disc), tucked tight so it clears the column text.
+		imagefilledellipse( $img, 1120, -30, 440, 440, $gold );
+		imagefilledellipse( $img, 1120, -30, 384, 384, $panel );
 
-		// Corner brackets (four L-shaped marks).
-		$bk = 26; $ln = 46; $tk = 3;
-		imagefilledrectangle( $img, $bk, $bk, $bk + $ln, $bk + $tk - 1, $gold );
-		imagefilledrectangle( $img, $bk, $bk, $bk + $tk - 1, $bk + $ln, $gold );
-		imagefilledrectangle( $img, self::W - $bk - $ln, $bk, self::W - $bk, $bk + $tk - 1, $gold );
-		imagefilledrectangle( $img, self::W - $bk - $tk + 1, $bk, self::W - $bk, $bk + $ln, $gold );
-		imagefilledrectangle( $img, $bk, self::H - $bk - $tk + 1, $bk + $ln, self::H - $bk, $gold );
-		imagefilledrectangle( $img, $bk, self::H - $bk - $ln, $bk + $tk - 1, self::H - $bk, $gold );
-		imagefilledrectangle( $img, self::W - $bk - $ln, self::H - $bk - $tk + 1, self::W - $bk, self::H - $bk, $gold );
-		imagefilledrectangle( $img, self::W - $bk - $tk + 1, self::H - $bk - $ln, self::W - $bk, self::H - $bk, $gold );
+		// Bottom-bar ornament: centre diamond + short hairlines either side.
+		$ocx = (int) round( self::W / 2 ); $ocy = 576;
+		$this->fill_poly( $img, [ $ocx, $ocy - 6, $ocx + 6, $ocy, $ocx, $ocy + 6, $ocx - 6, $ocy ], $gold );
+		imagefilledrectangle( $img, $ocx - 60, $ocy, $ocx - 14, $ocy, $gold );
+		imagefilledrectangle( $img, $ocx + 14, $ocy, $ocx + 60, $ocy, $gold );
 
-		// Hairline column divider.
-		imagefilledrectangle( $img, 706, 100, 707, 500, $divc );
+		// Re-cut the rounded corners (the arc ring may have spilled past them).
+		$this->round_corners( $img, 36 );
 
 		$fonts = $this->fonts();
 		$name  = wp_specialchars_decode( get_the_title( $post_id ), ENT_QUOTES );
 
-		// ------------------------------------------------ Logo plate (gold-framed, white).
-		$px = 64; $py = 96; $ps = 156;
-		imagefilledrectangle( $img, $px - 3, $py - 3, $px + $ps + 2, $py + $ps + 2, $gold );
-		imagefilledrectangle( $img, $px, $py, $px + $ps - 1, $py + $ps - 1, $white );
+		// ------------------------------------------------ Logo box (gold-framed, white, rounded).
+		$px = 56; $py = 86; $ps = 168;
+		$this->fill_round_rect( $img, $px - 2, $py - 2, $px + $ps + 1, $py + $ps + 1, 24, $gold );
+		$this->fill_round_rect( $img, $px, $py, $px + $ps - 1, $py + $ps - 1, 22, $white );
 
 		$logo = $this->load_logo( $post_id );
 		if ( $logo ) {
@@ -199,7 +206,7 @@ class OC_Business_Card {
 			// Contain-fit: preserve aspect ratio and pad evenly — the logo is
 			// always fully visible (never cropped) and never stretched. Padding
 			// is modest so it fills the plate cleanly without touching the edge.
-			$pad   = 14;
+			$pad   = 16;
 			$inner = max( 1, $ps - $pad * 2 );
 			$scale = min( $inner / max( 1, $sw ), $inner / max( 1, $sh ) );
 			$dw    = max( 1, (int) round( $sw * $scale ) );
@@ -214,17 +221,17 @@ class OC_Business_Card {
 				$size = 76;
 				while ( $size > 26 && $this->text_width( $mono, $fonts['display'], $size ) > $ps - 44 ) { $size -= 4; }
 				$mw = $this->text_width( $mono, $fonts['display'], $size );
-				$this->text( $img, $size, $px + (int) round( $ps / 2 ) - (int) round( $mw / 2 ), $py + (int) round( $ps / 2 ) + (int) round( $size * 0.36 ), $burg, $mono, $fonts['display'] );
+				$this->text( $img, $size, $px + (int) round( $ps / 2 ) - (int) round( $mw / 2 ), $py + (int) round( $ps / 2 ) + (int) round( $size * 0.36 ), $namec, $mono, $fonts['display'] );
 			}
 		}
 
-		// ------------------------------------------------ Name + meta (right of plate).
-		$tx = 252; $tw = 690 - $tx;
+		// ------------------------------------------------ Name + category + location.
+		$tx = 260; $tw = $panel_x - $tx - 26;
 		$terms    = get_the_terms( $post_id, OC_TAX );
 		$category = ( $terms && ! is_wp_error( $terms ) ) ? (string) reset( $terms )->name : '';
-		// Location string: multiple regions selected → just "UK"; a single region
-		// → "Region — UK" (e.g. "London — UK"). Falls back to the covered
-		// cities/areas when no England region is set, then to a plain "UK".
+		$category = html_entity_decode( $category, ENT_QUOTES ); // term names store "&" as &amp;
+		// Location: a single region → "Region, United Kingdom"; several regions
+		// (or none) → just "United Kingdom". Falls back to covered cities/areas.
 		$as_list = static function ( $raw ) {
 			if ( is_string( $raw ) ) {
 				$raw = ( '' === $raw ) ? [] : explode( ',', $raw );
@@ -235,50 +242,34 @@ class OC_Business_Card {
 		if ( empty( $scope ) ) {
 			$scope = $as_list( get_post_meta( $post_id, '_oc_location_areas', true ) );
 		}
-		$n = count( $scope );
-		if ( 0 === $n ) {
-			// Nothing specific selected — a full phrase reads better than "UK".
-			$location = 'Nationwide, UK';
-		} elseif ( 1 === $n ) {
-			$location = $scope[0] . ' — UK';
-		} else {
-			// Primary region + "& UK-wide" — kept short so it stays on one line.
-			$location = $scope[0] . ' & UK-wide';
-		}
-		$meta = implode( ' • ', array_filter( [ $category, $location ] ) );
+		$location = ( 1 === count( $scope ) ) ? $scope[0] . ', United Kingdom' : 'United Kingdom';
 
-		list( $lines, $ns ) = $this->wrap_fit( $name, $fonts['display'], 46, $tw, 2, 26 );
-		$lh = (int) round( $ns * 1.28 );
+		list( $lines, $ns ) = $this->wrap_fit( $name, $fonts['display'], 44, $tw, 2, 26 );
+		$lh = (int) round( $ns * 1.22 );
 
-		// Address / meta — ALWAYS a single line. Shrink the font (max 14 → min 11)
-		// so it fits the column without wrapping; ellipsise only in the extreme
-		// case where even 11px overflows.
-		$ms = 14;
-		if ( '' !== $meta ) {
-			for ( $z = 14; $z >= 11; $z-- ) {
-				$ms = $z;
-				if ( $this->text_width( $meta, $fonts['regular'], $z ) <= $tw ) {
-					break;
-				}
-			}
-			$meta = $this->fit_ellipsis( $meta, $fonts['regular'], $ms, $tw );
-		}
-		$mg     = 34; // breathing room between the name and the address
-		$ul_pad = 16; // clean gap between the address text and its gold underline
-
-		$bh   = count( $lines ) * $lh + ( '' !== $meta ? ( $mg + $ms + $ul_pad ) : 0 );
-		$top  = $py + (int) round( ( $ps - $bh ) / 2 );
-		if ( $top < 72 ) { $top = 72; }
+		// Vertical block: name lines + tagline + location, centred on the logo box.
+		$tag_gap = 30; $loc_gap = 44;
+		$bh  = count( $lines ) * $lh + ( '' !== $category ? $tag_gap : 0 ) + $loc_gap;
+		$top = $py + (int) round( ( $ps - $bh ) / 2 );
+		if ( $top < 66 ) { $top = 66; }
 		$base = $top + $ns;
 		foreach ( $lines as $line ) {
-			$this->text( $img, $ns, $tx, $base, $ink, $line, $fonts['display'] );
+			$this->text( $img, $ns, $tx, $base, $namec, $line, $fonts['display'] );
 			$base += $lh;
 		}
-		if ( '' !== $meta ) {
-			$my = ( $base - $lh ) + $mg;
-			$this->text( $img, $ms, $tx, $my, $goldlt, $meta, $fonts['regular'] );
-			imagefilledrectangle( $img, $tx, $my + $ul_pad, $tx + 90, $my + $ul_pad + 1, $gold ); // underline, clear of the text
+		$base -= $lh;
+		if ( '' !== $category ) {
+			$base += $tag_gap;
+			$this->text_tracked( $img, 15, $tx, $base, $golddeep, strtoupper( $category ), $fonts['bold'], 4 );
+			// Thin gold divider with a centred diamond, per the reference design.
+			$dy = $base + 17;
+			imagefilledrectangle( $img, $tx, $dy, $tx + 64, $dy, $gold );
+			$this->fill_poly( $img, [ $tx + 78, $dy - 4, $tx + 82, $dy, $tx + 78, $dy + 4, $tx + 74, $dy ], $gold );
+			imagefilledrectangle( $img, $tx + 92, $dy, $tx + 156, $dy, $gold );
 		}
+		$base += $loc_gap;
+		$this->draw_pin( $img, $tx + 7, $base - 6, $circle, $white );
+		$this->text( $img, 14, $tx + 22, $base, $ink, $this->fit_ellipsis( $location, $fonts['regular'], 14, $tw - 22 ), $fonts['regular'] );
 
 		// ------------------------------------------------ Contact rows.
 		$permalink = get_permalink( $post_id );
@@ -288,18 +279,20 @@ class OC_Business_Card {
 			[ 'WhatsApp',  (string) get_post_meta( $post_id, '_oc_whatsapp', true ) ],
 			[ 'Email',     (string) get_post_meta( $post_id, '_oc_public_email', true ) ],
 			[ 'Instagram', $ig ],
-			[ 'Web',       $this->display_url( $permalink ) ],
+			[ 'Website',   $this->display_url( $permalink ) ],
 		];
 		$rows = apply_filters( 'oc_business_card_fields', $rows, $post_id );
+		$rows = array_values( array_filter( (array) $rows, static function ( $row ) {
+			return '' !== trim( (string) ( $row[1] ?? '' ) );
+		} ) );
 
-		$this->text( $img, 12, 66, 322, $gold, 'GET IN TOUCH', $fonts['bold'] );
-		$y = 356;
-		foreach ( (array) $rows as $row ) {
-			$label = isset( $row[0] ) ? (string) $row[0] : '';
-			$value = isset( $row[1] ) ? trim( (string) $row[1] ) : '';
-			if ( '' === $value ) {
-				continue;
-			}
+		// Fit however many rows survive (max 4 shown) into y 300..545.
+		$rows  = array_slice( $rows, 0, 4 );
+		$pitch = ( count( $rows ) > 3 ) ? 58 : 66;
+		$cy    = 316;
+		foreach ( $rows as $row ) {
+			$label = (string) $row[0];
+			$value = trim( (string) $row[1] );
 			// Pick the icon from the heading; filter-added rows get a neutral node.
 			$key = strtolower( preg_replace( '/[^a-z]/i', '', $label ) );
 			if ( in_array( $key, [ 'website', 'web', 'url', 'site' ], true ) ) {
@@ -313,54 +306,130 @@ class OC_Business_Card {
 			} else {
 				$icon = 'node';
 			}
-			$this->draw_contact_icon( $img, $icon, 74, (int) $y - 5, $icon_rgb, $bw );
+			// Burgundy circle with a white glyph knocked into it.
+			imagefilledellipse( $img, 86, $cy, 40, 40, $panel );
+			$this->draw_contact_icon( $img, $icon, 86, $cy, [ 255, 255, 255 ], $bw );
 
-			$this->text( $img, 16, 106, (int) $y, $ink, $label, $fonts['bold'] );
-			$lx = 106 + $this->text_width( $label, $fonts['bold'], 16 ) + 14;
-			$this->text( $img, 15, (int) $lx, (int) $y, $cream, $this->fit_ellipsis( $value, $fonts['regular'], 15, max( 120, 690 - (int) $lx ) ), $fonts['regular'] );
-			$y += 50;
+			// Thin gold vertical separator between the icon and the text, per reference.
+			imagefilledrectangle( $img, 114, $cy - 15, 114, $cy + 15, $divc );
+
+			$this->text( $img, 15, 128, $cy - 2, $ink, $label, $fonts['bold'] );
+			$this->text( $img, 13, 128, $cy + 17, $muted, $this->fit_ellipsis( $value, $fonts['regular'], 13, $panel_x - 128 - 40 ), $fonts['regular'] );
+			imagefilledrectangle( $img, 128, $cy + 29, $panel_x - 60, $cy + 29, $divc );
+			$cy += $pitch;
 		}
 
-		// Vendor number is shown centred directly under the QR (see the QR column
-		// block below) — not repeated at the bottom-left.
+		// ------------------------------------------------ Right column (burgundy panel).
 		$number = function_exists( 'oc_get_vendor_number' ) ? (string) oc_get_vendor_number( $post_id ) : '';
+		$ccx    = (int) round( ( $panel_x + self::W ) / 2 );
 
-		// ------------------------------------------------ QR column (gold-framed panel).
-		$ccx = 878;
-		$cap = 'SCAN TO VIEW PROFILE';
-		$cw  = $this->text_width( $cap, $fonts['bold'], 13 );
-		$this->text( $img, 13, $ccx - (int) round( $cw / 2 ), 150, $gold, $cap, $fonts['bold'] );
+		// Small phone glyph above the caption.
+		$this->fill_round_rect( $img, $ccx - 12, 74, $ccx + 12, 112, 7, $gold );
+		$this->fill_round_rect( $img, $ccx - 9, 79, $ccx + 9, 103, 4, $panel );
+		imagefilledellipse( $img, $ccx, 107, 4, 4, $panel );
 
-		$qs = 190; $qx = $ccx - (int) round( $qs / 2 ); $qy = 176;
-		// Blunt/rounded corners on the QR frame + white panel (the QR's own quiet
-		// zone sits inside, so the visible corners come from these rounded plates).
-		$this->fill_round_rect( $img, $qx - 8, $qy - 8, $qx + $qs + 7, $qy + $qs + 7, 16, $gold );
-		$this->fill_round_rect( $img, $qx - 5, $qy - 5, $qx + $qs + 4, $qy + $qs + 4, 13, $white );
+		$this->text_tracked_centered( $img, 12, $ccx, 146, $creamtx, 'SCAN TO VIEW PROFILE', $fonts['bold'], 3 );
+
+		// White rounded QR panel.
+		$qs = 176; $qx = $ccx - (int) round( $qs / 2 ); $qy = 182;
+		$this->fill_round_rect( $img, $qx - 16, $qy - 16, $qx + $qs + 15, $qy + $qs + 15, 18, $white );
 		$this->draw_qr( $img, (string) $permalink, $qx, $qy, $qs, $gold, $gray, $fonts );
 
-		// Gold diamond separator (version-safe imagefilledpolygon signature).
-		$diamond = [ $ccx, 398, $ccx + 7, 405, $ccx, 412, $ccx - 7, 405 ];
-		if ( PHP_VERSION_ID >= 80100 ) {
-			imagefilledpolygon( $img, $diamond, $gold );
-		} else {
-			imagefilledpolygon( $img, $diamond, 4, $gold );
-		}
+		// Gold divider + diamond between the QR panel and the vendor ID.
+		$oy = 404;
+		imagefilledrectangle( $img, $ccx - 52, $oy, $ccx - 14, $oy, $gold );
+		$this->fill_poly( $img, [ $ccx, $oy - 4, $ccx + 4, $oy, $ccx, $oy + 4, $ccx - 4, $oy ], $gold );
+		imagefilledrectangle( $img, $ccx + 14, $oy, $ccx + 52, $oy, $gold );
 
-		$vid = 'VENDOR ID';
-		$vw  = $this->text_width( $vid, $fonts['regular'], 13 );
-		$this->text( $img, 13, $ccx - (int) round( $vw / 2 ), 436, $cream, $vid, $fonts['regular'] );
+		$this->text_tracked_centered( $img, 12, $ccx, 432, $creamtx, 'VENDOR ID', $fonts['regular'], 3 );
 		if ( '' !== $number ) {
-			$nw = $this->text_width( $number, $fonts['bold'], 26 );
-			$this->text( $img, 26, $ccx - (int) round( $nw / 2 ), 472, $goldlt, $number, $fonts['bold'] );
+			$nw = $this->text_width( $number, $fonts['bold'], 24 );
+			$this->text( $img, 24, $ccx - (int) round( $nw / 2 ), 466, $goldlt, $number, $fonts['bold'] );
 		}
-		$lo  = 'LISTED ON';
-		$lw2 = $this->text_width( $lo, $fonts['regular'], 11 );
-		$this->text( $img, 11, $ccx - (int) round( $lw2 / 2 ), 500, $rose, $lo, $fonts['regular'] );
+		$this->text_tracked_centered( $img, 10, $ccx, 502, $dimtx, 'LISTED ON', $fonts['regular'], 3 );
 		$br  = 'Owambe Connect';
-		$bw  = $this->text_width( $br, $fonts['display'], 20 );
-		$this->text( $img, 20, $ccx - (int) round( $bw / 2 ), 526, $gold, $br, $fonts['display'] );
+		$brw = $this->text_width( $br, $fonts['display'], 21 );
+		$this->text( $img, 21, $ccx - (int) round( $brw / 2 ), 532, $gold, $br, $fonts['display'] );
 
 		return $img;
+	}
+
+	/**
+	 * Cut the four card corners back to transparent outside a radius — used
+	 * after decorative fills (the gold arc) that may spill past the rounded
+	 * slab drawn first.
+	 */
+	private function round_corners( $img, $r ) {
+		imagealphablending( $img, false );
+		$clear   = imagecolorallocatealpha( $img, 0, 0, 0, 127 );
+		$centers = [
+			[ $r, $r ],
+			[ self::W - 1 - $r, $r ],
+			[ $r, self::H - 1 - $r ],
+			[ self::W - 1 - $r, self::H - 1 - $r ],
+		];
+		foreach ( $centers as $c ) {
+			$x0 = ( $c[0] <= $r ) ? 0 : self::W - $r;
+			$y0 = ( $c[1] <= $r ) ? 0 : self::H - $r;
+			for ( $x = $x0; $x < $x0 + $r; $x++ ) {
+				for ( $y = $y0; $y < $y0 + $r; $y++ ) {
+					$dx = $x - $c[0];
+					$dy = $y - $c[1];
+					if ( ( $dx * $dx + $dy * $dy ) > ( $r * $r ) ) {
+						imagesetpixel( $img, $x, $y, $clear );
+					}
+				}
+			}
+		}
+		imagealphablending( $img, true );
+	}
+
+	/**
+	 * Letterspaced text at a baseline — GD has no tracking, so draw each
+	 * character advancing by its measured width plus $tracking px.
+	 */
+	private function text_tracked( $img, $size, $x, $y, $color, $text, $font, $tracking = 3 ) {
+		if ( ! $this->can_ttf( $font ) ) {
+			$this->text( $img, $size, $x, $y, $color, $text, $font );
+			return;
+		}
+		$len = function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text );
+		for ( $i = 0; $i < $len; $i++ ) {
+			$ch = function_exists( 'mb_substr' ) ? mb_substr( $text, $i, 1 ) : substr( $text, $i, 1 );
+			$this->text( $img, $size, $x, $y, $color, $ch, $font );
+			$x += $this->text_width( $ch, $font, $size ) + $tracking;
+		}
+	}
+
+	/** Width of a letterspaced string (matches text_tracked's advance). */
+	private function tracked_width( $text, $font, $size, $tracking = 3 ) {
+		if ( ! $this->can_ttf( $font ) ) {
+			return $this->text_width( $text, $font, $size );
+		}
+		$w   = 0;
+		$len = function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text );
+		for ( $i = 0; $i < $len; $i++ ) {
+			$ch = function_exists( 'mb_substr' ) ? mb_substr( $text, $i, 1 ) : substr( $text, $i, 1 );
+			$w += $this->text_width( $ch, $font, $size ) + $tracking;
+		}
+		return max( 0, $w - $tracking );
+	}
+
+	/** Letterspaced text centred on $cx. */
+	private function text_tracked_centered( $img, $size, $cx, $y, $color, $text, $font, $tracking = 3 ) {
+		$w = $this->tracked_width( $text, $font, $size, $tracking );
+		$this->text_tracked( $img, $size, $cx - (int) round( $w / 2 ), $y, $color, $text, $font, $tracking );
+	}
+
+	/**
+	 * Small map-pin glyph (filled teardrop with a knocked-out dot), centred
+	 * horizontally on $cx with its point at roughly $cy + 8.
+	 */
+	private function draw_pin( $img, $cx, $cy, $rgb, $hole ) {
+		$c = imagecolorallocate( $img, (int) $rgb[0], (int) $rgb[1], (int) $rgb[2] );
+		imagefilledellipse( $img, $cx, $cy - 2, 14, 14, $c );
+		$this->fill_poly( $img, [ $cx - 6, $cy, $cx + 6, $cy, $cx, $cy + 10 ], $c );
+		imagefilledellipse( $img, $cx, $cy - 2, 6, 6, $hole );
 	}
 
 	/**
@@ -741,16 +810,25 @@ class OC_Business_Card {
 	/* Output                                                              */
 	/* ------------------------------------------------------------------ */
 
-	private function output_png( $img, $slug ) {
+	private function output_png( $img, $slug, $inline = false ) {
 		nocache_headers();
 		header( 'Content-Type: image/png' );
-		header( 'Content-Disposition: attachment; filename="' . $slug . '-business-card.png"' );
+		header( 'Content-Disposition: ' . ( $inline ? 'inline' : 'attachment' ) . '; filename="' . $slug . '-business-card.png"' );
 		imagepng( $img );
 		imagedestroy( $img );
 		exit;
 	}
 
 	private function output_pdf( $img, $slug ) {
+		// The card's rounded corners are transparent; JPEG has no alpha, so
+		// flatten onto white first or the corners come out black in the PDF.
+		$flat  = imagecreatetruecolor( self::W, self::H );
+		imagefilledrectangle( $flat, 0, 0, self::W, self::H, imagecolorallocate( $flat, 255, 255, 255 ) );
+		imagealphablending( $flat, true );
+		imagecopy( $flat, $img, 0, 0, 0, 0, self::W, self::H );
+		imagedestroy( $img );
+		$img = $flat;
+
 		ob_start();
 		imagejpeg( $img, null, 90 );
 		$jpeg = ob_get_clean();

@@ -362,24 +362,11 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 							<span class="dashicons dashicons-email"></span>
 							<span><?php esc_html_e( 'Share by email', 'owambe-connect-core' ); ?></span>
 						</a>
-						<span class="oc-vd__submenu-label"><span class="dashicons dashicons-id-alt"></span><?php esc_html_e( 'Business Card (PNG)', 'owambe-connect-core' ); ?></span>
-							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png' ), 'oc_business_card' ) ); ?>">
-								<span class="dashicons dashicons-art"></span>
-								<span><?php esc_html_e( 'Coloured', 'owambe-connect-core' ); ?></span>
-							</a>
-							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=png&variant=bw' ), 'oc_business_card' ) ); ?>">
-								<span class="dashicons dashicons-media-default"></span>
-								<span><?php esc_html_e( 'White & Black', 'owambe-connect-core' ); ?></span>
-							</a>
-							<span class="oc-vd__submenu-label"><span class="dashicons dashicons-pdf"></span><?php esc_html_e( 'Business Card (PDF)', 'owambe-connect-core' ); ?></span>
-							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=pdf' ), 'oc_business_card' ) ); ?>">
-								<span class="dashicons dashicons-art"></span>
-								<span><?php esc_html_e( 'Coloured', 'owambe-connect-core' ); ?></span>
-							</a>
-							<a class="oc-vd__menu-link oc-vd__menu-link--sub" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=oc_business_card&format=pdf&variant=bw' ), 'oc_business_card' ) ); ?>">
-								<span class="dashicons dashicons-media-default"></span>
-								<span><?php esc_html_e( 'White & Black', 'owambe-connect-core' ); ?></span>
-							</a>
+						<?php // Business Card — opens the in-dashboard preview panel (no instant download). ?>
+						<button type="button" class="oc-vd__menu-link" data-oc-tab="card">
+							<span class="dashicons dashicons-id-alt"></span>
+							<span><?php esc_html_e( 'Business Card', 'owambe-connect-core' ); ?></span>
+						</button>
 					</div><?php // .oc-vd__submenu-inner ?>
 						</div><?php // .oc-vd__submenu ?>
 						<?php endif; ?>
@@ -1209,6 +1196,46 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 						</div>
 					</form>
 				</section>
+
+				<?php if ( OC_STATUS_APPROVED === $status ) : ?>
+				<!-- ============== Business Card (preview + downloads) ============== -->
+				<?php
+				$card_base = admin_url( 'admin-post.php?action=oc_business_card' );
+				$card_url  = static function ( $args ) use ( $card_base ) {
+					return wp_nonce_url( add_query_arg( $args, $card_base ), 'oc_business_card' );
+				};
+				$card_variants = [
+					'color' => [ 'label' => __( 'Coloured', 'owambe-connect-core' ), 'args' => [] ],
+					'bw'    => [ 'label' => __( 'White & Black', 'owambe-connect-core' ), 'args' => [ 'variant' => 'bw' ] ],
+				];
+				?>
+				<section class="oc-vd__panel" data-oc-panel="card">
+					<header class="oc-vd__panel-head">
+						<h1><?php esc_html_e( 'Business Card', 'owambe-connect-core' ); ?></h1>
+						<p><?php esc_html_e( 'Generated live from your profile — pick a style, then download it as an image or a print-ready PDF.', 'owambe-connect-core' ); ?></p>
+					</header>
+					<div class="oc-vd__cardprev-grid">
+						<?php foreach ( $card_variants as $vkey => $cv ) : ?>
+							<figure class="oc-vd__cardprev">
+								<figcaption><?php echo esc_html( $cv['label'] ); ?></figcaption>
+								<img
+									src="<?php echo esc_url( $card_url( $cv['args'] + [ 'format' => 'png', 'preview' => 1 ] ) ); ?>"
+									alt="<?php echo esc_attr( sprintf( /* translators: %s: card style */ __( '%s business card preview', 'owambe-connect-core' ), $cv['label'] ) ); ?>"
+									loading="lazy" decoding="async"/>
+								<div class="oc-vd__cardprev-actions">
+									<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $card_url( $cv['args'] + [ 'format' => 'png' ] ) ); ?>">
+										<span class="dashicons dashicons-download" aria-hidden="true"></span><?php esc_html_e( 'PNG', 'owambe-connect-core' ); ?>
+									</a>
+									<a class="oc-vd__btn" href="<?php echo esc_url( $card_url( $cv['args'] + [ 'format' => 'pdf' ] ) ); ?>">
+										<span class="dashicons dashicons-pdf" aria-hidden="true"></span><?php esc_html_e( 'PDF', 'owambe-connect-core' ); ?>
+									</a>
+								</div>
+							</figure>
+						<?php endforeach; ?>
+					</div>
+					<p class="oc-vd__cardprev-hint"><?php esc_html_e( 'The card updates automatically whenever you edit your profile — logo, contact details, category and location all flow straight onto it.', 'owambe-connect-core' ); ?></p>
+				</section>
+				<?php endif; ?>
 
 			</main>
 		</div>

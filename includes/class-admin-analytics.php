@@ -77,6 +77,13 @@ class OC_Admin_Analytics {
 			}
 		}
 
+		// Dedicated per-vendor breakdown report — its own route (?view=vendors)
+		// with full pagination, a back link and the same date/category filters.
+		if ( isset( $_GET['view'] ) && 'vendors' === sanitize_key( wp_unslash( $_GET['view'] ) ) ) {
+			$this->render_vendor_breakdown();
+			return;
+		}
+
 		$kpis        = $this->kpis();
 		$timeseries  = $this->applications_timeseries();
 		$categories  = $this->vendors_by_category();
@@ -108,8 +115,8 @@ class OC_Admin_Analytics {
 			$kpi_filter_args['from'] = substr( $this->filters['from'], 0, 10 );
 			$kpi_filter_args['to']   = substr( $this->filters['to'], 0, 10 );
 		}
-		$views_drill_url  = add_query_arg( array_merge( $kpi_filter_args, [ 'metric' => 'views' ] ),  $base_url ) . '#oc-an-vendor-breakdown';
-		$clicks_drill_url = add_query_arg( array_merge( $kpi_filter_args, [ 'metric' => 'clicks' ] ), $base_url ) . '#oc-an-vendor-breakdown';
+		$views_drill_url  = add_query_arg( array_merge( $kpi_filter_args, [ 'view' => 'vendors', 'metric' => 'views' ] ),  $base_url );
+		$clicks_drill_url = add_query_arg( array_merge( $kpi_filter_args, [ 'view' => 'vendors', 'metric' => 'clicks' ] ), $base_url );
 		?>
 		<div class="wrap oc-an">
 			<h1 style="margin-bottom:6px;display:flex;align-items:center;gap:10px">
@@ -258,14 +265,20 @@ class OC_Admin_Analytics {
 			$trk_series  = class_exists( 'OC_Tracking' ) ? OC_Tracking::timeseries_range( $trk_from, $trk_to ) : [];
 			// Over-fetch, then rank by whichever metric the KPI drill-down selected
 			// (views by default, clicks when the "Contact clicks" card was clicked).
-			$top_vendors = class_exists( 'OC_Tracking' ) ? OC_Tracking::top_vendors_range( $trk_from, $trk_to, 50 ) : [];
+			$top_vendors = class_exists( 'OC_Tracking' ) ? OC_Tracking::top_vendors_range( $trk_from, $trk_to, 500 ) : [];
 			usort( $top_vendors, static function ( $a, $b ) use ( $sort_metric ) {
 				$other = 'views' === $sort_metric ? 'clicks' : 'views';
 				return $a[ $sort_metric ] === $b[ $sort_metric ]
 					? $b[ $other ] <=> $a[ $other ]
 					: $b[ $sort_metric ] <=> $a[ $sort_metric ];
 			} );
-			$top_vendors = array_slice( $top_vendors, 0, 8 );
+			// The full, paginated per-vendor list lives on its own report page
+			// (?view=vendors). Here we show only the top few as a quick preview,
+			// plus a link to that dedicated breakdown.
+			$an_total      = count( $top_vendors );
+			$an_max        = $an_total ? ( (int) max( array_column( $top_vendors, $sort_metric ) ) ?: 1 ) : 1;
+			$top_vendors   = array_slice( $top_vendors, 0, 8 );
+			$breakdown_url = add_query_arg( array_merge( $kpi_filter_args, [ 'view' => 'vendors', 'metric' => $sort_metric ] ), $base_url );
 			?>
 			<div class="oc-an-row">
 				<div class="oc-an-card oc-an-card--wide">
@@ -294,10 +307,9 @@ class OC_Admin_Analytics {
 					<?php if ( ! empty( $top_vendors ) ) : ?>
 						<table class="oc-an-bars oc-an-top">
 							<?php
-							$tv_max = max( array_column( $top_vendors, $sort_metric ) ) ?: 1;
 							foreach ( $top_vendors as $tv ) :
 								$primary = (int) $tv[ $sort_metric ];
-								$pct     = round( ( $primary / $tv_max ) * 100 );
+								$pct     = round( ( $primary / $an_max ) * 100 );
 								$vurl    = add_query_arg( 'vendor', $tv['vendor_id'], $base_url );
 								$hint    = $is_clicks_rank
 									/* translators: %s: number of profile views */
@@ -314,6 +326,9 @@ class OC_Admin_Analytics {
 								</tr>
 							<?php endforeach; ?>
 						</table>
+						<p class="oc-an-viewall"><a href="<?php echo esc_url( $breakdown_url ); ?>"><?php
+							/* translators: %d: total number of vendors with activity */
+							printf( esc_html__( 'View full breakdown (%d vendors)', 'owambe-connect-core' ), (int) $an_total ); ?> &rarr;</a></p>
 					<?php else : ?>
 						<p class="oc-an-empty"><?php echo esc_html( $is_clicks_rank ? __( 'No vendor contact clicks recorded in this period yet.', 'owambe-connect-core' ) : __( 'No vendor views recorded in this period yet.', 'owambe-connect-core' ) ); ?></p>
 					<?php endif; ?>
@@ -622,6 +637,16 @@ class OC_Admin_Analytics {
 			.oc-an-bars__val { width:10%; text-align:right; font-weight:600; color:#6E0F2C; font-family:Georgia, serif; font-size:1rem; }
 			.oc-an-top .oc-an-bars__label a { color:#1F1B1A; text-decoration:none; font-weight:600; }
 			.oc-an-top .oc-an-bars__label a:hover { color:#6E0F2C; text-decoration:underline; }
+			.oc-an-pager { display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; margin:16px 0 2px; }
+			.oc-an-pager__link { display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:34px; padding:0 11px; border:1px solid #E4DDD2; border-radius:8px; background:#fff; color:#6E0F2C; font-size:13px; font-weight:600; line-height:1; text-decoration:none; transition:border-color .15s, background .15s; }
+			.oc-an-pager__link:hover { border-color:#C9A961; background:#FAF7F2; }
+			.oc-an-pager__link.is-current { background:#6E0F2C; border-color:#6E0F2C; color:#fff; cursor:default; }
+			.oc-an-pager__link.is-disabled { color:#B7ABA5; background:#F6F2EC; cursor:default; pointer-events:none; }
+			.oc-an-pager__gap { padding:0 4px; color:#9A8F88; }
+			@media (max-width:600px){ .oc-an-pager__link { min-width:32px; height:32px; padding:0 9px; font-size:12.5px; } }
+			.oc-an-viewall { margin:14px 0 0; text-align:center; }
+			.oc-an-viewall a { color:#6E0F2C; font-weight:600; text-decoration:none; font-size:13px; }
+			.oc-an-viewall a:hover { text-decoration:underline; }
 
 			.oc-an-recent th { background:#FAF7F2; }
 		</style>
@@ -652,6 +677,50 @@ class OC_Admin_Analytics {
 			<?php endif; ?>
 		<?php
 		echo $href ? '</a>' : '</div>';
+	}
+
+	/**
+	 * Prev / numbered / Next pagination for the vendor breakdown. Windows the page
+	 * numbers (first, last, and ±1 around the current) with an ellipsis, preserves
+	 * the active filters, and anchors back to the breakdown card. No output for a
+	 * single page.
+	 */
+	private function an_pager( $current, $total, array $args, $base_url, $anchor = '' ) {
+		$total = (int) $total;
+		if ( $total < 2 ) {
+			return;
+		}
+		$current = max( 1, min( (int) $current, $total ) );
+		$link = static function ( $n, $label, $extra = '' ) use ( $args, $base_url, $anchor ) {
+			$url = add_query_arg( array_merge( $args, [ 'an_paged' => (int) $n ] ), $base_url ) . $anchor;
+			return '<a class="oc-an-pager__link' . $extra . '" href="' . esc_url( $url ) . '">' . $label . '</a>';
+		};
+		echo '<nav class="oc-an-pager" aria-label="' . esc_attr__( 'Vendor breakdown pages', 'owambe-connect-core' ) . '">';
+
+		echo $current > 1
+			? $link( $current - 1, '&lsaquo; ' . esc_html__( 'Prev', 'owambe-connect-core' ) ) // phpcs:ignore WordPress.Security.EscapeOutput -- built from escaped parts.
+			: '<span class="oc-an-pager__link is-disabled">&lsaquo; ' . esc_html__( 'Prev', 'owambe-connect-core' ) . '</span>';
+
+		$gap = false;
+		for ( $n = 1; $n <= $total; $n++ ) {
+			if ( 1 === $n || $n === $total || abs( $n - $current ) <= 1 ) {
+				if ( $n === $current ) {
+					echo '<span class="oc-an-pager__link is-current" aria-current="page">' . (int) $n . '</span>';
+				} else {
+					echo $link( $n, (string) (int) $n ); // phpcs:ignore WordPress.Security.EscapeOutput -- integer label.
+				}
+				$gap = false;
+			} elseif ( ! $gap ) {
+				echo '<span class="oc-an-pager__gap">&hellip;</span>';
+				$gap = true;
+			}
+		}
+
+		echo $current < $total
+			? $link( $current + 1, esc_html__( 'Next', 'owambe-connect-core' ) . ' &rsaquo;' ) // phpcs:ignore WordPress.Security.EscapeOutput -- built from escaped parts.
+			: '<span class="oc-an-pager__link is-disabled">' . esc_html__( 'Next', 'owambe-connect-core' ) . ' &rsaquo;</span>';
+
+		echo '</nav>';
 	}
 
 	/**
@@ -925,6 +994,190 @@ class OC_Admin_Analytics {
 			.oc-an-bars__bar { width:55%; padding-right:10px !important; }
 			.oc-an-bars__bar span { display:block; height:8px; background:linear-gradient(90deg, #6E0F2C, #C9A961); border-radius:999px; min-width:6px; }
 			.oc-an-bars__val { width:10%; text-align:right; font-weight:600; color:#6E0F2C; font-family:Georgia, serif; font-size:1rem; }
+		</style>
+		<?php
+	}
+
+	/**
+	 * Dedicated "vendor breakdown" report page (?view=vendors) — the full,
+	 * paginated Most-viewed / Most-contacted vendors list, with a back link to
+	 * the main analytics overview and the same date/category filters intact.
+	 */
+	private function render_vendor_breakdown() {
+		$base_url = admin_url( 'edit.php?post_type=' . OC_CPT . '&page=' . self::PAGE );
+
+		$active_metric = ( isset( $_GET['metric'] ) && 'clicks' === sanitize_key( wp_unslash( $_GET['metric'] ) ) ) ? 'clicks' : 'views';
+		$sort_metric   = $active_metric;
+		$is_clicks     = 'clicks' === $sort_metric;
+		$cats_filter   = OC_Queries::categories_with_counts();
+
+		// Carry the active date/category filters through every link on this page.
+		$filter_args = [ 'range' => $this->filters['range'], 'cat' => $this->filters['cat'] ];
+		if ( 'custom' === $this->filters['range'] ) {
+			$filter_args['from'] = substr( $this->filters['from'], 0, 10 );
+			$filter_args['to']   = substr( $this->filters['to'], 0, 10 );
+		}
+		$back_url  = add_query_arg( $filter_args, $base_url );
+		$view_args = array_merge( $filter_args, [ 'view' => 'vendors', 'metric' => $active_metric ] );
+
+		$trk_from = substr( (string) $this->filters['from'], 0, 10 );
+		$trk_to   = substr( (string) $this->filters['to'], 0, 10 );
+
+		$all = class_exists( 'OC_Tracking' ) ? OC_Tracking::top_vendors_range( $trk_from, $trk_to, 500 ) : [];
+		usort( $all, static function ( $a, $b ) use ( $sort_metric ) {
+			$other = 'views' === $sort_metric ? 'clicks' : 'views';
+			return $a[ $sort_metric ] === $b[ $sort_metric ] ? $b[ $other ] <=> $a[ $other ] : $b[ $sort_metric ] <=> $a[ $sort_metric ];
+		} );
+
+		$per_page   = 20;
+		$total      = count( $all );
+		$total_page = max( 1, (int) ceil( $total / $per_page ) );
+		$paged      = isset( $_GET['an_paged'] ) ? max( 1, (int) $_GET['an_paged'] ) : 1;
+		$paged      = min( $paged, $total_page );
+		$max        = $total ? ( (int) max( array_column( $all, $sort_metric ) ) ?: 1 ) : 1;
+		$rows       = array_slice( $all, ( $paged - 1 ) * $per_page, $per_page );
+		$first      = $total ? ( ( $paged - 1 ) * $per_page + 1 ) : 0;
+		$last       = min( $paged * $per_page, $total );
+
+		$rank_title = $is_clicks ? __( 'Most-contacted vendors', 'owambe-connect-core' ) : __( 'Most-viewed vendors', 'owambe-connect-core' );
+		$rank_col   = $is_clicks ? __( 'Clicks', 'owambe-connect-core' ) : __( 'Views', 'owambe-connect-core' );
+		?>
+		<div class="wrap oc-an">
+			<p style="margin:14px 0 4px">
+				<a href="<?php echo esc_url( $back_url ); ?>">&larr; <?php esc_html_e( 'Back to marketplace analytics', 'owambe-connect-core' ); ?></a>
+			</p>
+			<h1 style="margin-bottom:6px;display:flex;align-items:center;gap:10px">
+				<span class="dashicons dashicons-chart-bar" style="color:#6E0F2C;font-size:28px"></span>
+				<?php esc_html_e( 'Vendor breakdown', 'owambe-connect-core' ); ?>
+			</h1>
+			<p style="margin:0 0 18px;color:#555">
+				<?php
+				printf(
+					/* translators: 1: from date, 2: to date */
+					esc_html__( 'Showing data from %1$s to %2$s', 'owambe-connect-core' ),
+					'<strong>' . esc_html( date_i18n( get_option( 'date_format' ), strtotime( $this->filters['from'] ) ) ) . '</strong>',
+					'<strong>' . esc_html( date_i18n( get_option( 'date_format' ), strtotime( $this->filters['to'] ) ) ) . '</strong>'
+				);
+				?>
+			</p>
+
+			<form method="get" class="oc-an-filters">
+				<input type="hidden" name="post_type" value="<?php echo esc_attr( OC_CPT ); ?>" />
+				<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE ); ?>" />
+				<input type="hidden" name="view" value="vendors" />
+				<input type="hidden" name="metric" value="<?php echo esc_attr( $active_metric ); ?>" />
+
+				<div class="oc-an-presets">
+					<?php
+					$presets = [
+						'7d'  => __( 'Last 7 days',    'owambe-connect-core' ),
+						'30d' => __( 'Last 30 days',   'owambe-connect-core' ),
+						'90d' => __( 'Last 90 days',   'owambe-connect-core' ),
+						'12m' => __( 'Last 12 months', 'owambe-connect-core' ),
+						'all' => __( 'All time',       'owambe-connect-core' ),
+					];
+					foreach ( $presets as $key => $label ) :
+						$url = add_query_arg( array_merge( $view_args, [ 'range' => $key ] ), $base_url );
+						?>
+						<a class="oc-an-preset <?php echo $this->filters['range'] === $key ? 'is-active' : ''; ?>" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $label ); ?></a>
+					<?php endforeach; ?>
+				</div>
+
+				<div class="oc-an-controls">
+					<label><?php esc_html_e( 'From', 'owambe-connect-core' ); ?>
+						<input type="date" name="from" value="<?php echo esc_attr( $trk_from ); ?>" />
+					</label>
+					<label><?php esc_html_e( 'To', 'owambe-connect-core' ); ?>
+						<input type="date" name="to" value="<?php echo esc_attr( $trk_to ); ?>" />
+					</label>
+					<label><?php esc_html_e( 'Category', 'owambe-connect-core' ); ?>
+						<select name="cat">
+							<option value=""><?php esc_html_e( 'All categories', 'owambe-connect-core' ); ?></option>
+							<?php foreach ( $cats_filter as $term ) : ?>
+								<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $this->filters['cat'], $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</label>
+					<input type="hidden" name="range" value="custom" />
+					<button type="submit" class="button button-primary"><?php esc_html_e( 'Apply', 'owambe-connect-core' ); ?></button>
+					<a href="<?php echo esc_url( add_query_arg( [ 'view' => 'vendors', 'metric' => $active_metric ], $base_url ) ); ?>" class="button"><?php esc_html_e( 'Reset', 'owambe-connect-core' ); ?></a>
+				</div>
+			</form>
+
+			<div class="oc-an-metric-toggle">
+				<a class="oc-an-mt <?php echo ! $is_clicks ? 'is-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( array_merge( $filter_args, [ 'view' => 'vendors', 'metric' => 'views' ] ), $base_url ) ); ?>"><?php esc_html_e( 'Most viewed', 'owambe-connect-core' ); ?></a>
+				<a class="oc-an-mt <?php echo $is_clicks ? 'is-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( array_merge( $filter_args, [ 'view' => 'vendors', 'metric' => 'clicks' ] ), $base_url ) ); ?>"><?php esc_html_e( 'Most contacted', 'owambe-connect-core' ); ?></a>
+			</div>
+
+			<div class="oc-an-card">
+				<h3 style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+					<span><?php echo esc_html( $rank_title ); ?></span>
+					<?php if ( $total ) : ?><span style="font-size:11px;font-weight:600;color:#6B6361;text-transform:uppercase;letter-spacing:.06em"><?php echo esc_html( $rank_col ); ?></span><?php endif; ?>
+				</h3>
+				<?php if ( ! empty( $rows ) ) : ?>
+					<table class="oc-an-bars oc-an-top">
+						<?php foreach ( $rows as $i => $tv ) :
+							$primary = (int) $tv[ $sort_metric ];
+							$pct     = round( ( $primary / $max ) * 100 );
+							$vurl    = add_query_arg( 'vendor', $tv['vendor_id'], $base_url );
+							$rank    = ( $paged - 1 ) * $per_page + (int) $i + 1;
+							?>
+							<tr>
+								<td class="oc-an-bars__rank"><?php echo (int) $rank; ?></td>
+								<td class="oc-an-bars__label"><a href="<?php echo esc_url( $vurl ); ?>"><?php echo esc_html( $tv['title'] ); ?></a></td>
+								<td class="oc-an-bars__bar"><span style="width:<?php echo esc_attr( $pct ); ?>%"></span></td>
+								<td class="oc-an-bars__val"><?php echo esc_html( number_format_i18n( $primary ) ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</table>
+					<p class="oc-an-count">
+						<?php
+						/* translators: 1: first row number, 2: last row number, 3: total vendors */
+						printf( esc_html__( 'Showing %1$d&ndash;%2$d of %3$d vendors', 'owambe-connect-core' ), (int) $first, (int) $last, (int) $total );
+						?>
+					</p>
+					<?php $this->an_pager( $paged, $total_page, $view_args, $base_url ); ?>
+				<?php else : ?>
+					<p class="oc-an-empty"><?php echo esc_html( $is_clicks ? __( 'No vendor contact clicks recorded in this period yet.', 'owambe-connect-core' ) : __( 'No vendor views recorded in this period yet.', 'owambe-connect-core' ) ); ?></p>
+				<?php endif; ?>
+			</div>
+		</div>
+
+		<style>
+			.oc-an h1 { color:#1F1B1A; }
+			.oc-an-filters { background:#fff; border:1px solid #E4DDD2; border-radius:8px; padding:14px 16px; margin:16px 0 16px; }
+			.oc-an-presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid #EFEAE2; }
+			.oc-an-preset { padding:6px 14px; background:#FAF7F2; border:1px solid #E4DDD2; border-radius:999px; color:#6B6361; text-decoration:none; font-weight:500; font-size:13px; }
+			.oc-an-preset:hover { border-color:#6E0F2C; color:#6E0F2C; }
+			.oc-an-preset.is-active { background:#6E0F2C; color:#fff; border-color:#6E0F2C; }
+			.oc-an-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+			.oc-an-controls label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:#6B6361; font-weight:500; text-transform:uppercase; letter-spacing:.06em; }
+			.oc-an-controls input[type="date"], .oc-an-controls select { padding:6px 10px; border:1px solid #ccd0d4; border-radius:4px; font-size:13px; }
+			.oc-an-metric-toggle { display:inline-flex; border:1px solid #E4DDD2; border-radius:8px; overflow:hidden; margin:0 0 16px; }
+			.oc-an-mt { padding:8px 16px; font-size:13px; font-weight:600; color:#6B6361; text-decoration:none; background:#fff; border-right:1px solid #E4DDD2; }
+			.oc-an-mt:last-child { border-right:0; }
+			.oc-an-mt:hover { background:#FAF7F2; color:#6E0F2C; }
+			.oc-an-mt.is-active { background:#6E0F2C; color:#fff; }
+			.oc-an-card { background:#fff; border:1px solid #E4DDD2; border-radius:8px; padding:18px 20px; }
+			.oc-an-card h3 { font-family:Georgia, serif; color:#6E0F2C; margin:0 0 14px; padding-bottom:10px; border-bottom:2px solid #C9A961; font-size:1rem; }
+			.oc-an-empty { color:#6B6361; padding:24px 0; text-align:center; }
+			.oc-an-bars { width:100%; border-collapse:collapse; }
+			.oc-an-bars td { padding:8px 0; font-size:13px; vertical-align:middle; }
+			.oc-an-bars__rank { width:34px; color:#9A8F88; font-weight:600; font-variant-numeric:tabular-nums; }
+			.oc-an-bars__label { width:38%; color:#1F1B1A; padding-right:10px !important; }
+			.oc-an-bars__label a { color:#1F1B1A; text-decoration:none; font-weight:600; }
+			.oc-an-bars__label a:hover { color:#6E0F2C; text-decoration:underline; }
+			.oc-an-bars__bar { width:48%; padding-right:10px !important; }
+			.oc-an-bars__bar span { display:block; height:8px; background:linear-gradient(90deg, #6E0F2C, #C9A961); border-radius:999px; min-width:6px; }
+			.oc-an-bars__val { width:10%; text-align:right; font-weight:600; color:#6E0F2C; font-family:Georgia, serif; font-size:1rem; }
+			.oc-an-count { color:#6B6361; font-size:12.5px; text-align:center; margin:12px 0 0; }
+			.oc-an-pager { display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; margin:12px 0 2px; }
+			.oc-an-pager__link { display:inline-flex; align-items:center; justify-content:center; min-width:34px; height:34px; padding:0 11px; border:1px solid #E4DDD2; border-radius:8px; background:#fff; color:#6E0F2C; font-size:13px; font-weight:600; line-height:1; text-decoration:none; transition:border-color .15s, background .15s; }
+			.oc-an-pager__link:hover { border-color:#C9A961; background:#FAF7F2; }
+			.oc-an-pager__link.is-current { background:#6E0F2C; border-color:#6E0F2C; color:#fff; cursor:default; }
+			.oc-an-pager__link.is-disabled { color:#B7ABA5; background:#F6F2EC; cursor:default; pointer-events:none; }
+			.oc-an-pager__gap { padding:0 4px; color:#9A8F88; }
+			@media (max-width:600px){ .oc-an-pager__link { min-width:32px; height:32px; padding:0 9px; font-size:12.5px; } }
 		</style>
 		<?php
 	}
