@@ -13,6 +13,12 @@ class OC_Activator {
 		OC_CPT_Manager::register_post_type();
 		OC_CPT_Manager::register_taxonomy();
 		OC_CPT_Manager::register_role();
+		if ( class_exists( 'OC_Event_CPT' ) ) {
+			OC_Event_CPT::register_post_type();
+			// The flush below already covers events — mark it done so the init
+			// self-heal doesn't flush a second time on the next page load.
+			update_option( 'oc_event_rewrite_version', OC_Event_CPT::REWRITE_VERSION );
+		}
 		if ( class_exists( 'OC_Client' ) ) {
 			OC_Client::register_role();
 		}
