@@ -387,6 +387,17 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 						<p><?php esc_html_e( 'Quick snapshot of your listing.', 'owambe-connect-core' ); ?></p>
 					</header>
 
+					<?php
+					/**
+					 * Fires at the top of the vendor dashboard Overview panel — an
+					 * extension point for injecting cards (e.g. the £15 verification
+					 * card/badge) without editing this template.
+					 *
+					 * @param int $id Vendor post id.
+					 */
+					do_action( 'oc_vendor_dashboard_overview', $id );
+					?>
+
 					<!-- Profile completion -->
 					<div class="oc-vd__cmp oc-vd__cmp--<?php echo esc_attr( $completion['tier'] ); ?>" style="--c:<?php echo esc_attr( $completion['tier_color'] ); ?>">
 						<div class="oc-vd__cmp-head">

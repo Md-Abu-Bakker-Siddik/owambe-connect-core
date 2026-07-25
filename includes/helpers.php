@@ -824,7 +824,7 @@ function oc_debug_log( $event, $data = [], $force = false ) {
 	);
 	$uploads = wp_upload_dir();
 	if ( ! empty( $uploads['basedir'] ) ) {
-		@file_put_contents( trailingslashit( $uploads['basedir'] ) . 'oc-debug.log', $line, FILE_APPEND, LOCK_EX );
+		@file_put_contents( trailingslashit( $uploads['basedir'] ) . 'oc-debug.log', $line, FILE_APPEND | LOCK_EX );
 	}
 }
 

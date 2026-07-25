@@ -44,6 +44,7 @@ class OC_Plugin {
 		( new OC_Tracking() )->register();
 		( new OC_Stripe() )->register();
 		( new OC_Subscriptions() )->register();
+		( new OC_Vendor_Verification() )->register();
 		( new OC_Reviews() )->register();
 		( new OC_Business_Card() )->register();
 
