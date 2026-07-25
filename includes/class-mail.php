@@ -71,12 +71,12 @@ class OC_Mail {
 		return array_merge( $headers, $extra );
 	}
 
-	private static function send( $to, $subject, $body ) {
+	public static function send( $to, $subject, $body, array $extra_headers = [] ) {
 		$headers = [
 			'Content-Type: text/html; charset=UTF-8',
 			sprintf( 'From: %s <%s>', self::from_name(), self::from_email() ),
 		];
-		wp_mail( $to, $subject, $body, $headers );
+		return wp_mail( $to, $subject, $body, array_merge( $headers, $extra_headers ) );
 	}
 
 	private static function send_admin( $subject, $body, array $extra_headers = [] ) {

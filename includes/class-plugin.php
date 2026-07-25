@@ -29,6 +29,7 @@ class OC_Plugin {
 		( new OC_Security() )->register();
 		( new OC_CPT_Manager() )->register();
 		( new OC_Event_CPT() )->register();
+		( new OC_Event_RSVP() )->register();
 		( new OC_Registration() )->register();
 		( new OC_Email_Verification() )->register();
 		( new OC_Dashboard() )->register();
