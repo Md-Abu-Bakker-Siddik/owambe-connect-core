@@ -51,6 +51,9 @@ class OC_Settings {
 			'stripe_pk'                 => '',
 			'stripe_sk'                 => '',
 			'stripe_webhook_secret'     => '',
+			'stripe_price_professional' => '',
+			'stripe_price_elite'        => '',
+			'stripe_price_premium'      => '',
 			'billing_enabled'           => 0,
 
 			// Legal — client-facing Terms & Conditions URL used by the client
@@ -172,6 +175,9 @@ class OC_Settings {
 		$out['stripe_pk']                 = isset( $input['stripe_pk'] )             ? sanitize_text_field( $input['stripe_pk'] )             : '';
 		$out['stripe_sk']                 = isset( $input['stripe_sk'] )             ? sanitize_text_field( $input['stripe_sk'] )             : '';
 		$out['stripe_webhook_secret']     = isset( $input['stripe_webhook_secret'] ) ? sanitize_text_field( $input['stripe_webhook_secret'] ) : '';
+		$out['stripe_price_professional'] = isset( $input['stripe_price_professional'] ) ? sanitize_text_field( $input['stripe_price_professional'] ) : '';
+		$out['stripe_price_elite']        = isset( $input['stripe_price_elite'] )        ? sanitize_text_field( $input['stripe_price_elite'] )        : '';
+		$out['stripe_price_premium']      = isset( $input['stripe_price_premium'] )      ? sanitize_text_field( $input['stripe_price_premium'] )      : '';
 		$out['billing_enabled']           = ! empty( $input['billing_enabled'] ) ? 1 : 0;
 
 		// Legal.
@@ -411,7 +417,21 @@ class OC_Settings {
 					<tr>
 						<th scope="row"><label for="oc-st-wh"><?php esc_html_e( 'Webhook signing secret', 'owambe-connect-core' ); ?></label></th>
 						<td><input id="oc-st-wh" type="password" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[stripe_webhook_secret]" value="<?php echo esc_attr( $s['stripe_webhook_secret'] ); ?>" placeholder="whsec_..." autocomplete="new-password"/>
-							<p class="description"><?php printf( esc_html__( 'Stripe Dashboard → Developers → Webhooks → Add endpoint: %s', 'owambe-connect-core' ), '<code>' . esc_html( rest_url( 'oc/v1/stripe-webhook' ) ) . '</code>' ); ?></p></td>
+							<p class="description"><?php printf( esc_html__( 'Stripe Dashboard → Developers → Webhooks → Add endpoint: %s', 'owambe-connect-core' ), '<code>' . esc_html( rest_url( 'oc/v1/stripe-webhook' ) ) . '</code>' ); ?>
+								<br/><?php esc_html_e( 'Subscribe to: checkout.session.completed, customer.subscription.created / updated / deleted, invoice.payment_failed', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="oc-st-price-pro"><?php esc_html_e( 'Professional — Price ID', 'owambe-connect-core' ); ?></label></th>
+						<td><input id="oc-st-price-pro" type="text" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[stripe_price_professional]" value="<?php echo esc_attr( $s['stripe_price_professional'] ); ?>" placeholder="price_..."/>
+							<p class="description"><?php esc_html_e( 'Stripe Dashboard → Products → your Professional plan → recurring Price ID.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="oc-st-price-elite"><?php esc_html_e( 'Elite — Price ID', 'owambe-connect-core' ); ?></label></th>
+						<td><input id="oc-st-price-elite" type="text" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[stripe_price_elite]" value="<?php echo esc_attr( $s['stripe_price_elite'] ); ?>" placeholder="price_..."/></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="oc-st-price-prem"><?php esc_html_e( 'Premium — Price ID', 'owambe-connect-core' ); ?></label></th>
+						<td><input id="oc-st-price-prem" type="text" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[stripe_price_premium]" value="<?php echo esc_attr( $s['stripe_price_premium'] ); ?>" placeholder="price_..."/></td>
 					</tr>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Billing master switch', 'owambe-connect-core' ); ?></th>

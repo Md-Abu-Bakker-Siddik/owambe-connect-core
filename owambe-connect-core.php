@@ -53,6 +53,7 @@ require_once OC_PLUGIN_DIR . 'includes/class-client.php';
 require_once OC_PLUGIN_DIR . 'includes/class-google-auth.php';
 require_once OC_PLUGIN_DIR . 'includes/class-tracking.php';
 require_once OC_PLUGIN_DIR . 'includes/class-stripe.php';
+require_once OC_PLUGIN_DIR . 'includes/class-subscriptions.php';
 require_once OC_PLUGIN_DIR . 'includes/class-reviews.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-reviews.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-clients.php';
