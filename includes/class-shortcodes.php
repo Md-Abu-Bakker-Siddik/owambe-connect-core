@@ -43,6 +43,7 @@ class OC_Shortcodes {
 		add_shortcode( 'oc_client_login',         [ $this, 'client_login' ] );
 		add_shortcode( 'oc_client_dashboard',     [ $this, 'client_dashboard' ] );
 		add_shortcode( 'oc_safety_info',          [ $this, 'safety_info' ] );
+		add_shortcode( 'oc_rsvp_form',            [ $this, 'rsvp_form' ] );
 
 		// Auto-inject a burgundy breadcrumb band on a small set of seeded
 		// content pages (about, terms, privacy, contact) so they get the
@@ -579,6 +580,28 @@ class OC_Shortcodes {
 			'subheading' => '',
 		], $atts );
 		return oc_get_template( 'shortcode-safety-info.php', $atts );
+	}
+
+	/**
+	 * Public RSVP form for an event. Posts to admin-post.php
+	 * (action=oc_submit_rsvp, handled by OC_Event_RSVP). The event id can be
+	 * passed via [oc_rsvp_form event_id="123"]; on a single oc_event page it
+	 * defaults to the current post.
+	 */
+	public function rsvp_form( $atts = [] ) {
+		$atts = shortcode_atts( [
+			'event_id'   => 0,
+			'heading'    => '',
+			'subheading' => '',
+		], $atts );
+
+		$event_id = absint( $atts['event_id'] );
+		if ( ! $event_id && is_singular( 'oc_event' ) ) {
+			$event_id = (int) get_the_ID();
+		}
+		$atts['event_id'] = $event_id;
+
+		return oc_get_template( 'shortcode-rsvp-form.php', $atts );
 	}
 
 	public function testimonials( $atts = [] ) {

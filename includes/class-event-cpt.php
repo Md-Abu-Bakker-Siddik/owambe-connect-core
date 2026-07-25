@@ -27,6 +27,28 @@ class OC_Event_CPT {
 		// Slug hardening + SEO guard for unlisted events.
 		add_filter( 'wp_insert_post_data', [ __CLASS__, 'tokenize_slug_on_publish' ], 10, 2 );
 		add_filter( 'wp_robots',           [ __CLASS__, 'noindex_single_event' ] );
+
+		// Ensure single events render the_content() (and thus shortcodes) even on
+		// themes without a single-oc_event.php. Themes can still override.
+		add_filter( 'template_include', [ __CLASS__, 'single_template' ] );
+	}
+
+	/**
+	 * Fall back to the plugin's single-oc_event.php when the active theme has no
+	 * single template for events — otherwise WordPress uses index.php, which
+	 * usually skips the_content(). A theme-provided single-oc_event.php wins.
+	 *
+	 * @param string $template Resolved template path from the hierarchy.
+	 * @return string
+	 */
+	public static function single_template( $template ) {
+		if ( is_singular( 'oc_event' ) && ! locate_template( 'single-oc_event.php' ) ) {
+			$fallback = OC_TEMPLATE_DIR . 'single-oc_event.php';
+			if ( file_exists( $fallback ) ) {
+				return $fallback;
+			}
+		}
+		return $template;
 	}
 
 	/**
