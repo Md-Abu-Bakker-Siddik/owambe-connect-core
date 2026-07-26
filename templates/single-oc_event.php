@@ -93,6 +93,16 @@ get_header();
 				</div>
 
 				<?php
+				/**
+				 * After the event body — extension point for event sections such as
+				 * the gift registry (OC_Registry renders here).
+				 *
+				 * @param int $event_id
+				 */
+				do_action( 'oc_event_after_content', $oc_event_id );
+				?>
+
+				<?php
 				// Auto-render the RSVP form at the bottom of every event page, so
 				// clients don't have to paste the shortcode into the editor. Guard
 				// against a double form if they added [oc_rsvp_form] to the content.

@@ -163,6 +163,16 @@ $render_preview = static function ( $att_id, $field_name ) {
 				</div>
 			</div>
 
+			<?php
+			/**
+			 * Extension point for extra editor sections that live inside the form
+			 * (e.g. the gift registry). Rendered just above the Save button.
+			 *
+			 * @param WP_Post|null $event
+			 */
+			do_action( 'oc_event_editor_sections', $event );
+			?>
+
 			<div class="oc-eved__actions">
 				<button type="submit" class="oc-eved__save"><?php echo $event_id ? esc_html__( 'Save changes', 'owambe-connect-core' ) : esc_html__( 'Create event page', 'owambe-connect-core' ); ?></button>
 			</div>
