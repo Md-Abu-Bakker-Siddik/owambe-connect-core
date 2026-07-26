@@ -28,6 +28,9 @@ class OC_Activator {
 		self::seed_legal_pages();
 		self::backfill_vendor_numbers();
 		self::upgrade_seeded_pages();
+		if ( class_exists( 'OC_Featured_Cron' ) ) {
+			OC_Featured_Cron::activate(); // schedule the featured-expiry sweep.
+		}
 		flush_rewrite_rules();
 	}
 
@@ -81,6 +84,9 @@ class OC_Activator {
 	}
 
 	public static function deactivate() {
+		if ( class_exists( 'OC_Featured_Cron' ) ) {
+			OC_Featured_Cron::deactivate(); // unschedule the featured-expiry sweep.
+		}
 		flush_rewrite_rules();
 	}
 

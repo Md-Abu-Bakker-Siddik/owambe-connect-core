@@ -43,8 +43,9 @@ class OC_Plugin {
 		( new OC_Google_Auth() )->register();
 		( new OC_Tracking() )->register();
 		( new OC_Stripe() )->register();
-		( new OC_Subscriptions() )->register();
+		( new OC_Vendor_Subscription() )->register();
 		( new OC_Vendor_Verification() )->register();
+		( new OC_Featured_Cron() )->register();
 		( new OC_Reviews() )->register();
 		( new OC_Business_Card() )->register();
 

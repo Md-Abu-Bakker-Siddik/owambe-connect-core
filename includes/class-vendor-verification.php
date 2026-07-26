@@ -27,9 +27,22 @@ class OC_Vendor_Verification {
 	const FEE_AMOUNT   = 1500;
 	const FEE_CURRENCY = 'gbp';
 
-	/** User meta mirroring the paid/verified state. */
+	/** User meta mirroring the paid state (kept for back-compat / auditing). */
 	const META_STATUS = '_oc_verification_status';
 	const META_PAID   = '_oc_verification_paid';
+
+	/** Vendor POST meta: the verification request + its uploaded document. */
+	const META_REQUEST = '_oc_verification_request'; // '' | 'paid'
+	const META_DOC     = '_oc_verification_doc_id';  // attachment ID
+
+	/** The document must be an ID/certificate scan: image or PDF. */
+	const DOC_FIELD = 'oc_verification_doc';
+	const ALLOWED_MIME = [
+		'jpg|jpeg' => 'image/jpeg',
+		'png'      => 'image/png',
+		'webp'     => 'image/webp',
+		'pdf'      => 'application/pdf',
+	];
 
 	public function register() {
 		add_action( 'oc_stripe_event', [ $this, 'on_stripe_event' ] );
@@ -62,9 +75,10 @@ class OC_Vendor_Verification {
 			return;
 		}
 
-		$user_id = get_current_user_id();
-		if ( self::is_verified( $user_id ) ) {
-			return; // Already granted (e.g. the webhook got there first).
+		$user_id   = get_current_user_id();
+		$vendor_id = self::vendor_post_id_for_user( $user_id );
+		if ( ! $vendor_id || self::request_paid( $vendor_id ) ) {
+			return; // No vendor, or already recorded (e.g. the webhook got there first).
 		}
 
 		$session_id = isset( $_GET['session_id'] ) ? sanitize_text_field( wp_unslash( $_GET['session_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -80,13 +94,17 @@ class OC_Vendor_Verification {
 		$paid       = ( 'paid' === ( $session['payment_status'] ?? '' ) ) || ( 'complete' === ( $session['status'] ?? '' ) );
 		$purpose_ok = ( self::PURPOSE === ( $session['metadata']['oc_purpose'] ?? '' ) );
 
-		$owner = absint( $session['client_reference_id'] ?? 0 );
-		if ( ! $owner && isset( $session['metadata']['user_id'] ) ) {
-			$owner = absint( $session['metadata']['user_id'] );
+		// The session must belong to THIS vendor (by vendor id, or the owner id).
+		$sess_vendor = absint( $session['metadata']['vendor_id'] ?? 0 );
+		if ( ! $sess_vendor ) {
+			$sess_vendor = absint( $session['client_reference_id'] ?? 0 );
 		}
+		$sess_user = absint( $session['metadata']['user_id'] ?? 0 );
 
-		if ( $paid && $purpose_ok && $owner === (int) $user_id ) {
-			self::mark_verified( $user_id );
+		$owns = ( $sess_vendor === (int) $vendor_id ) || ( $sess_user && $sess_user === (int) $user_id );
+
+		if ( $paid && $purpose_ok && $owns ) {
+			self::mark_request_paid( $vendor_id );
 		}
 	}
 
@@ -132,28 +150,34 @@ class OC_Vendor_Verification {
 	// ─── Checkout ───────────────────────────────────────────────────────────
 
 	/**
-	 * One-time Checkout Session for the verification fee.
+	 * One-time Checkout Session for the verification fee, tied to a vendor post.
 	 *
-	 * @param int $user_id
+	 * @param int $vendor_id oc_vendor post id.
 	 * @return string|WP_Error Hosted checkout URL, or WP_Error.
 	 */
-	public static function create_checkout_session( $user_id ) {
-		$user = get_userdata( (int) $user_id );
-		if ( ! $user ) {
-			return new WP_Error( 'oc_verify', __( 'You must be signed in to get verified.', 'owambe-connect-core' ) );
+	public static function create_checkout_session( $vendor_id ) {
+		$vendor = get_post( (int) $vendor_id );
+		if ( ! $vendor || $vendor->post_type !== self::cpt() ) {
+			return new WP_Error( 'oc_verify', __( 'Vendor profile not found.', 'owambe-connect-core' ) );
 		}
+		$owner = get_userdata( (int) $vendor->post_author );
 
 		$return = self::return_url();
 
 		// Stripe substitutes {CHECKOUT_SESSION_ID} on redirect. We confirm that
-		// session server-side (maybe_confirm_success) before granting — so the
-		// flow works even when webhooks can't reach the site (e.g. localhost),
-		// and a bare ?oc_verify=success URL grants nothing on its own. The
-		// placeholder braces must stay literal, so it's appended, not passed
-		// through add_query_arg (which would URL-encode them).
+		// session server-side (maybe_confirm_success) before recording payment —
+		// so the flow works even when webhooks can't reach the site (e.g.
+		// localhost), and a bare ?oc_verify=success URL records nothing on its
+		// own. The placeholder braces must stay literal, so it's appended, not
+		// passed through add_query_arg (which would URL-encode them).
 		$success  = add_query_arg( 'oc_verify', 'success', $return );
 		$success .= ( false === strpos( $success, '?' ) ? '?' : '&' ) . 'session_id={CHECKOUT_SESSION_ID}';
 
+		$meta = [
+			'oc_purpose' => self::PURPOSE,
+			'vendor_id'  => (string) $vendor->ID,
+			'user_id'    => (string) $vendor->post_author,
+		];
 		$params = [
 			'mode'                => 'payment',
 			'line_items'          => [ [
@@ -166,16 +190,19 @@ class OC_Vendor_Verification {
 			] ],
 			'success_url'         => $success,
 			'cancel_url'          => add_query_arg( 'oc_verify', 'cancel', $return ),
-			'client_reference_id' => (string) $user->ID,
-			'customer_email'      => $user->user_email,
-			// Marker + user id echoed on BOTH the session and the PaymentIntent
-			// so the webhook can attribute the payment with certainty.
-			'metadata'            => [ 'oc_purpose' => self::PURPOSE, 'user_id' => (string) $user->ID ],
-			'payment_intent_data' => [ 'metadata' => [ 'oc_purpose' => self::PURPOSE, 'user_id' => (string) $user->ID ] ],
+			// Vendor post id is the reference; marker + ids echoed on both the
+			// session and the PaymentIntent so the webhook can attribute it.
+			'client_reference_id' => (string) $vendor->ID,
+			'metadata'            => $meta,
+			'payment_intent_data' => [ 'metadata' => $meta ],
 		];
+		if ( $owner && is_email( $owner->user_email ) ) {
+			$params['customer_email'] = $owner->user_email;
+		}
 
-		// Reuse a Stripe customer we already know (e.g. from subscriptions).
-		$customer = (string) get_user_meta( $user->ID, '_oc_stripe_customer_id', true );
+		// Reuse a Stripe customer we already know (e.g. from a subscription
+		// stored on the vendor post by OC_Vendor_Subscription).
+		$customer = (string) get_post_meta( $vendor->ID, '_oc_sub_stripe_customer', true );
 		if ( '' !== $customer ) {
 			$params['customer'] = $customer;
 			unset( $params['customer_email'] ); // can't send both.
@@ -191,19 +218,37 @@ class OC_Vendor_Verification {
 		return (string) $session['url'];
 	}
 
-	/** admin-post: vendor clicks "Get verified" → redirect to Stripe. */
+	/**
+	 * admin-post: the vendor uploads their verification document and starts the
+	 * £15 checkout. The document is stored on the vendor post BEFORE payment (so
+	 * it's captured even if they abandon checkout); payment then flips the
+	 * request to "paid". Never changes the user role.
+	 */
 	public function handle_checkout() {
 		if ( ! is_user_logged_in() ) {
 			$this->bail( __( 'Please sign in to get verified.', 'owambe-connect-core' ) );
 		}
 		check_admin_referer( self::ACTION );
 
-		$user_id = get_current_user_id();
-		if ( self::is_verified( $user_id ) ) {
+		$user_id   = get_current_user_id();
+		$vendor_id = self::vendor_post_id_for_user( $user_id );
+		if ( ! $vendor_id ) {
+			$this->bail( __( 'No vendor profile found for your account.', 'owambe-connect-core' ) );
+		}
+		// Already verified, or a paid request is already on file — don't re-charge.
+		if ( self::is_verified( $user_id ) || self::request_paid( $vendor_id ) ) {
 			wp_safe_redirect( add_query_arg( 'oc_verify', 'already', self::return_url() ) );
 			exit;
 		}
-		$url = self::create_checkout_session( $user_id );
+
+		// Require + store the verification document.
+		$attach_id = $this->handle_document_upload( $vendor_id );
+		if ( is_wp_error( $attach_id ) ) {
+			$this->bail( $attach_id->get_error_message() );
+		}
+		update_post_meta( $vendor_id, self::META_DOC, (int) $attach_id );
+
+		$url = self::create_checkout_session( $vendor_id );
 		if ( is_wp_error( $url ) ) {
 			$this->bail( $url->get_error_message() );
 		}
@@ -211,11 +256,41 @@ class OC_Vendor_Verification {
 		exit;
 	}
 
+	/**
+	 * Validate + store the uploaded verification document as an attachment on
+	 * the vendor post. Restricted to image/PDF. Marked private (not attached to
+	 * a published parent for public listing) — it's a private review document.
+	 *
+	 * @param int $vendor_id
+	 * @return int|WP_Error Attachment ID, or WP_Error.
+	 */
+	private function handle_document_upload( $vendor_id ) {
+		if ( empty( $_FILES[ self::DOC_FIELD ]['name'] ) ) {
+			return new WP_Error( 'oc_verify', __( 'Please attach your verification document (image or PDF).', 'owambe-connect-core' ) );
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+
+		$overrides = [
+			'test_form' => false,
+			'mimes'     => self::ALLOWED_MIME, // reject anything that isn't image/PDF.
+		];
+
+		$attach_id = media_handle_upload( self::DOC_FIELD, (int) $vendor_id, [], $overrides );
+		if ( is_wp_error( $attach_id ) ) {
+			// media_handle_upload messages are safe to surface (no secrets).
+			return new WP_Error( 'oc_verify', $attach_id->get_error_message() );
+		}
+		return (int) $attach_id;
+	}
+
 	// ─── Webhook → grant verification ───────────────────────────────────────
 
 	/**
-	 * Fires for every signature-verified Stripe event (OC_Stripe::webhook).
-	 * Only a PAID verification-purpose one-time checkout grants the badge.
+	 * Fires for every signature-verified Stripe event (OC_Stripe::webhook). Only
+	 * a PAID verification-purpose one-time checkout records the paid request.
 	 *
 	 * @param array $event
 	 */
@@ -226,7 +301,7 @@ class OC_Vendor_Verification {
 		$o = ( isset( $event['data']['object'] ) && is_array( $event['data']['object'] ) ) ? $event['data']['object'] : [];
 
 		if ( 'payment' !== ( $o['mode'] ?? '' ) ) {
-			return; // subscriptions are handled by OC_Subscriptions.
+			return; // subscriptions are handled elsewhere.
 		}
 		if ( self::PURPOSE !== ( $o['metadata']['oc_purpose'] ?? '' ) ) {
 			return; // not a verification payment.
@@ -235,68 +310,79 @@ class OC_Vendor_Verification {
 			return; // fail closed on unpaid/async-pending sessions.
 		}
 
-		$user_id = absint( $o['client_reference_id'] ?? 0 );
-		if ( ! $user_id && isset( $o['metadata']['user_id'] ) ) {
-			$user_id = absint( $o['metadata']['user_id'] );
+		$vendor_id = absint( $o['metadata']['vendor_id'] ?? 0 );
+		if ( ! $vendor_id ) {
+			$vendor_id = absint( $o['client_reference_id'] ?? 0 );
 		}
-		if ( $user_id ) {
-			self::mark_verified( $user_id );
+		if ( $vendor_id ) {
+			self::mark_request_paid( $vendor_id );
 		}
 	}
 
 	/**
-	 * Grant "Verified Vendor" status: flip the vendor post's _oc_verified flag
-	 * (canonical, same as the admin toggle) and stamp the user. Idempotent.
+	 * Record a PAID verification request on the vendor post — for admin review.
+	 * Sets _oc_verification_request = 'paid' and keeps the uploaded document ID.
+	 * Deliberately does NOT flip _oc_verified and NEVER changes the user role;
+	 * an admin approves the badge after reviewing the document. Idempotent.
 	 *
-	 * @param int $user_id
+	 * @param int $vendor_id oc_vendor post id.
 	 */
-	public static function mark_verified( $user_id ) {
-		$user_id = (int) $user_id;
-		if ( ! $user_id ) {
+	public static function mark_request_paid( $vendor_id ) {
+		$vendor_id = (int) $vendor_id;
+		if ( ! $vendor_id || get_post_type( $vendor_id ) !== self::cpt() ) {
 			return;
 		}
-		update_user_meta( $user_id, self::META_STATUS, 'verified' );
-		update_user_meta( $user_id, self::META_PAID, time() );
+		update_post_meta( $vendor_id, self::META_REQUEST, 'paid' );
 
-		$vendor_id = self::vendor_post_id_for_user( $user_id );
-		if ( $vendor_id ) {
-			update_post_meta( $vendor_id, '_oc_verified', 1 );
+		// Mirror a paid timestamp on the owner for auditing (no role/verified change).
+		$owner = (int) get_post_field( 'post_author', $vendor_id );
+		if ( $owner ) {
+			update_user_meta( $owner, self::META_STATUS, 'paid' );
+			update_user_meta( $owner, self::META_PAID, time() );
 		}
 
+		$doc_id = (int) get_post_meta( $vendor_id, self::META_DOC, true );
+
 		/**
-		 * Fires after a vendor is verified via paid checkout.
+		 * Fires after a vendor's verification payment is recorded.
 		 *
-		 * @param int $user_id
-		 * @param int $vendor_id Vendor post id (0 if none found yet).
+		 * @param int $vendor_id
+		 * @param int $doc_id    Uploaded document attachment id (0 if none).
 		 */
-		do_action( 'oc_vendor_verified', $user_id, $vendor_id );
+		do_action( 'oc_verification_request_paid', $vendor_id, $doc_id );
 
 		if ( function_exists( 'oc_debug_log' ) ) {
-			oc_debug_log( 'vendor verified via payment: user ' . $user_id, [], true );
+			oc_debug_log( 'verification request paid: vendor ' . $vendor_id . ' doc ' . $doc_id, [], true );
 		}
 	}
 
 	// ─── State ──────────────────────────────────────────────────────────────
 
-	/** True when the vendor is already verified (post flag or user stamp). */
+	/** True when the vendor is admin-approved (the ✓ badge). */
 	public static function is_verified( $user_id ) {
-		if ( 'verified' === (string) get_user_meta( (int) $user_id, self::META_STATUS, true ) ) {
-			return true;
-		}
 		$vendor_id = self::vendor_post_id_for_user( $user_id );
 		return $vendor_id && 1 === (int) get_post_meta( $vendor_id, '_oc_verified', true );
+	}
+
+	/** True when a paid verification request is on file (pending review). */
+	public static function request_paid( $vendor_id ) {
+		return 'paid' === (string) get_post_meta( (int) $vendor_id, self::META_REQUEST, true );
 	}
 
 	/** @return int The user's vendor post id, or 0. */
 	private static function vendor_post_id_for_user( $user_id ) {
 		$ids = get_posts( [
-			'post_type'   => defined( 'OC_CPT' ) ? OC_CPT : 'oc_vendor',
+			'post_type'   => self::cpt(),
 			'author'      => (int) $user_id,
 			'post_status' => 'any',
 			'numberposts' => 1,
 			'fields'      => 'ids',
 		] );
 		return $ids ? (int) $ids[0] : 0;
+	}
+
+	private static function cpt() {
+		return defined( 'OC_CPT' ) ? OC_CPT : 'oc_vendor';
 	}
 
 	// ─── Front-end trigger (shortcode) ──────────────────────────────────────
@@ -344,8 +430,25 @@ class OC_Vendor_Verification {
 			echo '<p class="oc-verify__msg oc-verify__msg--err">' . esc_html( $m ?: __( 'Something went wrong. Please try again.', 'owambe-connect-core' ) ) . '</p>';
 		}
 
+		$vendor_id = self::vendor_post_id_for_user( $user->ID );
+
 		if ( self::is_verified( $user->ID ) ) {
 			echo '<p class="oc-verify__badge">✓ ' . esc_html__( 'Verified Vendor', 'owambe-connect-core' ) . '</p>';
+		} elseif ( $vendor_id && self::request_paid( $vendor_id ) ) {
+			// Paid + document submitted, awaiting admin review.
+			?>
+			<div class="oc-verify__card oc-verify__card--pending">
+				<div class="oc-verify__card-main">
+					<span class="oc-verify__card-icon oc-verify__card-icon--pending" aria-hidden="true">
+						<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+					</span>
+					<div class="oc-verify__card-text">
+						<h3 class="oc-verify__title"><?php esc_html_e( 'Verification under review', 'owambe-connect-core' ); ?></h3>
+						<p class="oc-verify__sub"><?php esc_html_e( 'Payment received and your document was submitted. Our team will review it and award your ✓ Verified badge shortly.', 'owambe-connect-core' ); ?></p>
+					</div>
+				</div>
+			</div>
+			<?php
 		} else {
 			$configured = OC_Stripe::is_configured();
 			?>
@@ -359,21 +462,25 @@ class OC_Vendor_Verification {
 					</span>
 					<div class="oc-verify__card-text">
 						<h3 class="oc-verify__title"><?php esc_html_e( 'Become a Verified Vendor', 'owambe-connect-core' ); ?></h3>
-						<p class="oc-verify__sub"><?php esc_html_e( 'Earn the ✓ Verified badge and build trust with clients — a one-time fee.', 'owambe-connect-core' ); ?></p>
+						<p class="oc-verify__sub"><?php esc_html_e( 'Upload your ID or business document and pay a one-time fee — our team reviews it and awards the ✓ Verified badge.', 'owambe-connect-core' ); ?></p>
 					</div>
 				</div>
 				<div class="oc-verify__card-action">
 					<?php if ( $configured ) : ?>
-						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 							<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>" />
 							<?php wp_nonce_field( self::ACTION ); ?>
+							<label class="oc-verify__file">
+								<span class="oc-verify__file-label"><?php esc_html_e( 'Verification document (image or PDF)', 'owambe-connect-core' ); ?></span>
+								<input type="file" name="<?php echo esc_attr( self::DOC_FIELD ); ?>" accept="image/jpeg,image/png,image/webp,application/pdf" required />
+							</label>
 							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg">
-								<?php printf( esc_html__( 'Get verified — %s', 'owambe-connect-core' ), esc_html( self::fee_display() ) ); ?>
+								<?php printf( esc_html__( 'Upload &amp; pay %s', 'owambe-connect-core' ), esc_html( self::fee_display() ) ); ?>
 							</button>
 						</form>
 					<?php else : ?>
 						<button type="button" class="oc-btn oc-btn-primary oc-btn-lg" disabled aria-disabled="true">
-							<?php printf( esc_html__( 'Get verified — %s', 'owambe-connect-core' ), esc_html( self::fee_display() ) ); ?>
+							<?php printf( esc_html__( 'Upload &amp; pay %s', 'owambe-connect-core' ), esc_html( self::fee_display() ) ); ?>
 						</button>
 						<p class="oc-verify__note"><?php esc_html_e( 'Online payment isn\'t switched on yet — please check back soon.', 'owambe-connect-core' ); ?></p>
 					<?php endif; ?>
@@ -405,9 +512,14 @@ class OC_Vendor_Verification {
 			.oc-verify__card-text{min-width:0;}
 			.oc-verify__title{margin:0 0 .2rem;color:var(--oc-burgundy,#6E0F2C);font-size:1.2rem;font-weight:700;line-height:1.2;}
 			.oc-verify__sub{margin:0;color:#6B6361;font-size:14px;line-height:1.5;}
-			.oc-verify__card-action{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
-			.oc-verify__card-action form{margin:0;}
+			.oc-verify__card-action{flex:0 1 auto;display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:240px;}
+			.oc-verify__card-action form{margin:0;display:flex;flex-direction:column;gap:10px;}
 			.oc-verify__card-action .oc-btn{white-space:nowrap;}
+			.oc-verify__file{display:flex;flex-direction:column;gap:4px;text-align:left;}
+			.oc-verify__file-label{font-size:12.5px;font-weight:600;color:#3A3330;}
+			.oc-verify__file input[type=file]{font-size:13px;color:#3A3330;background:#fff;border:1px dashed rgba(110,15,44,.35);border-radius:10px;padding:9px 10px;cursor:pointer;}
+			.oc-verify__card--pending{background:linear-gradient(135deg,rgba(201,169,97,.10),rgba(110,15,44,.04));}
+			.oc-verify__card-icon--pending{background:#C9A961;box-shadow:0 4px 12px rgba(201,169,97,.30);}
 			.oc-verify__card .oc-btn[disabled]{opacity:.55;cursor:not-allowed;}
 			.oc-verify__note{margin:0;color:#9A938C;font-size:12.5px;}
 			.oc-verify__card-admin{flex:1 1 100%;margin:0;text-align:left;}

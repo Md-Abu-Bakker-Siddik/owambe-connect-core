@@ -1216,6 +1216,48 @@ function oc_founding_badge_html( $post_id ) {
 }
 
 /**
+ * True when a vendor currently has an access-granting subscription — either a
+ * live paid plan (active/trialing) OR an unexpired free period. Paid perks
+ * (featured eligibility, gallery cap, premium-collection placement) gate off
+ * this single helper so the whole platform stays truthful when a plan lapses.
+ *
+ * @param int $vendor_id oc_vendor post id.
+ * @return bool
+ */
+function oc_vendor_has_paid_plan( $vendor_id ) {
+	$vendor_id = (int) $vendor_id;
+	$active    = false;
+
+	if ( $vendor_id && class_exists( 'OC_Vendor_Subscription' ) ) {
+		$sub    = OC_Vendor_Subscription::get_vendor_subscription( $vendor_id );
+		$active = ! empty( $sub['active'] );
+	}
+
+	/**
+	 * Filter whether a vendor is treated as having an active plan.
+	 *
+	 * @param bool $active
+	 * @param int  $vendor_id
+	 */
+	return (bool) apply_filters( 'oc_vendor_has_paid_plan', $active, $vendor_id );
+}
+
+/**
+ * The active tier slug for a vendor ('' when none/free). Convenience for
+ * tier-specific gating (e.g. premium-only placement).
+ *
+ * @param int $vendor_id
+ * @return string professional|elite|premium|''
+ */
+function oc_vendor_plan( $vendor_id ) {
+	if ( ! oc_vendor_has_paid_plan( (int) $vendor_id ) || ! class_exists( 'OC_Vendor_Subscription' ) ) {
+		return '';
+	}
+	$sub = OC_Vendor_Subscription::get_vendor_subscription( (int) $vendor_id );
+	return (string) ( $sub['plan'] ?? '' );
+}
+
+/**
  * Gallery slot cap for one vendor — plan-derived hook point (Phase 2 §7.2).
  *
  * Today every vendor gets the flat `gallery_max_images` setting (default 6).
