@@ -786,6 +786,103 @@ function oc_get_current_vendor_post() {
 }
 
 /**
+ * The current user's event post (one event per client to start), or null.
+ * Mirrors oc_get_current_vendor_post() for the oc_event CPT.
+ *
+ * @return WP_Post|null
+ */
+function oc_get_current_event_post() {
+	$user_id = get_current_user_id();
+	if ( ! $user_id ) {
+		return null;
+	}
+	$posts = get_posts( [
+		'author'      => $user_id,
+		'post_type'   => 'oc_event',
+		'post_status' => [ 'publish', 'draft', 'pending' ],
+		'numberposts' => 1,
+		'orderby'     => 'ID',
+		'order'       => 'ASC',
+	] );
+	return $posts ? $posts[0] : null;
+}
+
+/**
+ * Schema for the event editor — sections → fields. Each field:
+ * [ label, type ] where type ∈ text|textarea|url|date|time. The meta key for a
+ * field `foo` is `_oc_event_foo`. Image/PDF upload sections (cover, gallery,
+ * invitation) are added with the upload handler in a later step. Filterable so
+ * the section list stays config, not code.
+ *
+ * @return array<string,array{title:string,fields:array}>
+ */
+function oc_event_fields() {
+	$fields = [
+		'basics' => [
+			'title'  => __( 'Cover & basics', 'owambe-connect-core' ),
+			'fields' => [
+				'date'     => [ 'label' => __( 'Event date', 'owambe-connect-core' ),      'type' => 'date' ],
+				'time'     => [ 'label' => __( 'Start time', 'owambe-connect-core' ),      'type' => 'time' ],
+				'location' => [ 'label' => __( 'Location / city', 'owambe-connect-core' ), 'type' => 'text' ],
+			],
+		],
+		'welcome' => [
+			'title'  => __( 'Welcome message', 'owambe-connect-core' ),
+			'fields' => [
+				'welcome' => [ 'label' => __( 'A short welcome to your guests', 'owambe-connect-core' ), 'type' => 'textarea' ],
+			],
+		],
+		'info' => [
+			'title'  => __( 'Event details', 'owambe-connect-core' ),
+			'fields' => [
+				'venue'         => [ 'label' => __( 'Venue', 'owambe-connect-core' ),         'type' => 'text' ],
+				'dress_code'    => [ 'label' => __( 'Dress code', 'owambe-connect-core' ),    'type' => 'text' ],
+				'parking'       => [ 'label' => __( 'Parking', 'owambe-connect-core' ),       'type' => 'textarea' ],
+				'accommodation' => [ 'label' => __( 'Accommodation', 'owambe-connect-core' ), 'type' => 'textarea' ],
+			],
+		],
+		'dietary' => [
+			'title'  => __( 'Dietary information', 'owambe-connect-core' ),
+			'fields' => [
+				'dietary' => [ 'label' => __( 'Menu / dietary notes', 'owambe-connect-core' ), 'type' => 'textarea' ],
+			],
+		],
+		'media' => [
+			'title'  => __( 'Video', 'owambe-connect-core' ),
+			'fields' => [
+				'youtube' => [ 'label' => __( 'YouTube video URL', 'owambe-connect-core' ), 'type' => 'url' ],
+			],
+		],
+		'schedule' => [
+			'title'  => __( 'Schedule / programme', 'owambe-connect-core' ),
+			'fields' => [
+				'schedule' => [ 'label' => __( 'One item per line (e.g. 2:00 PM — Arrival)', 'owambe-connect-core' ), 'type' => 'textarea' ],
+			],
+		],
+		'party' => [
+			'title'  => __( 'Wedding party', 'owambe-connect-core' ),
+			'fields' => [
+				'party' => [ 'label' => __( 'One per line (e.g. Ada — Chief Bridesmaid)', 'owambe-connect-core' ), 'type' => 'textarea' ],
+			],
+		],
+		'story' => [
+			'title'  => __( 'How we met', 'owambe-connect-core' ),
+			'fields' => [
+				'how_we_met' => [ 'label' => __( 'Your story', 'owambe-connect-core' ), 'type' => 'textarea' ],
+			],
+		],
+		'vendors' => [
+			'title'  => __( 'Our vendors', 'owambe-connect-core' ),
+			'fields' => [
+				'showcase_ids' => [ 'label' => __( 'Vendor IDs to showcase (comma-separated)', 'owambe-connect-core' ), 'type' => 'text' ],
+			],
+		],
+	];
+
+	return (array) apply_filters( 'oc_event_fields', $fields );
+}
+
+/**
  * Returns true when admin-level debugging is active for the current request.
  * Cheap helper used to gate debug log writes + the dashboard inline panel.
  * Vendor users cannot trigger this; only `manage_options` capability holders.

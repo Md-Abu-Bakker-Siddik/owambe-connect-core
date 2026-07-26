@@ -174,6 +174,11 @@ class OC_Activator {
 				'title'   => __( 'Website Safety', 'owambe-connect-core' ),
 				'content' => '[oc_safety_info]',
 			],
+			[
+				'slug'    => 'my-event',
+				'title'   => __( 'My Event', 'owambe-connect-core' ),
+				'content' => '[oc_event_editor]',
+			],
 		];
 
 		$slug_to_id = [];

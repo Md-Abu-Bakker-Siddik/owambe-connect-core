@@ -44,6 +44,88 @@ class OC_Vendor_Subscription {
 
 		// Grant the free period when a vendor becomes approved (status → publish).
 		add_action( 'transition_post_status', [ $this, 'maybe_start_free_period' ], 10, 3 );
+
+		// Read-only subscription status line at the top of the dashboard Overview.
+		add_action( 'oc_vendor_dashboard_overview', [ $this, 'render_dashboard_status' ], 5 );
+	}
+
+	/**
+	 * Compact, read-only "Subscription" line for the vendor dashboard Overview.
+	 * Shows the current plan, status, and free-period end date. Fired by the
+	 * 'oc_vendor_dashboard_overview' action ($vendor_id passed).
+	 *
+	 * @param int $vendor_id
+	 */
+	public function render_dashboard_status( $vendor_id = 0 ) {
+		$vendor_id = (int) $vendor_id;
+		if ( ! $vendor_id && function_exists( 'oc_get_current_vendor_post' ) ) {
+			$p = oc_get_current_vendor_post();
+			$vendor_id = $p ? (int) $p->ID : 0;
+		}
+		if ( ! $vendor_id ) {
+			return;
+		}
+
+		$sub    = self::get_vendor_subscription( $vendor_id );
+		$status = (string) $sub['status'];
+
+		$labels = [
+			'free'     => __( 'Free period', 'owambe-connect-core' ),
+			'trialing' => __( 'Trial', 'owambe-connect-core' ),
+			'active'   => __( 'Active', 'owambe-connect-core' ),
+			'past_due' => __( 'Payment due', 'owambe-connect-core' ),
+			'canceled' => __( 'Cancelled', 'owambe-connect-core' ),
+			''         => __( 'No active plan', 'owambe-connect-core' ),
+		];
+		$status_label = isset( $labels[ $status ] ) ? $labels[ $status ] : ucfirst( str_replace( '_', ' ', $status ) );
+
+		$tiers      = self::tiers();
+		$plan_label = ( '' !== (string) $sub['plan'] && isset( $tiers[ $sub['plan'] ] ) )
+			? $tiers[ $sub['plan'] ]['label']
+			: '—';
+
+		// State → colour (semantic, not the brand accent).
+		$tone = 'muted';
+		if ( ! empty( $sub['active'] ) ) {
+			$tone = 'ok';
+		} elseif ( in_array( $status, [ 'past_due', 'canceled' ], true ) ) {
+			$tone = 'warn';
+		}
+
+		$when = '';
+		if ( 'free' === $status && (int) $sub['free_until'] > 0 ) {
+			$when = sprintf(
+				/* translators: %s: date the free period ends */
+				__( 'Free until %s', 'owambe-connect-core' ),
+				date_i18n( (string) get_option( 'date_format' ), (int) $sub['free_until'] )
+			);
+		}
+		?>
+		<div class="oc-subline oc-subline--<?php echo esc_attr( $tone ); ?>">
+			<span class="oc-subline__label"><?php esc_html_e( 'Subscription', 'owambe-connect-core' ); ?></span>
+			<span class="oc-subline__dot" aria-hidden="true"></span>
+			<span class="oc-subline__status"><?php echo esc_html( $status_label ); ?></span>
+			<span class="oc-subline__sep" aria-hidden="true">·</span>
+			<span class="oc-subline__plan"><?php printf( esc_html__( 'Plan: %s', 'owambe-connect-core' ), esc_html( $plan_label ) ); ?></span>
+			<?php if ( '' !== $when ) : ?>
+				<span class="oc-subline__sep" aria-hidden="true">·</span>
+				<span class="oc-subline__when"><?php echo esc_html( $when ); ?></span>
+			<?php endif; ?>
+		</div>
+		<style>
+			.oc-subline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 1rem;padding:9px 14px;
+				background:#fff;border:1px solid var(--oc-border,#E4DDD2);border-radius:10px;
+				font-size:13.5px;color:#6B6361;}
+			.oc-subline__label{font-weight:700;color:#3A3330;text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;}
+			.oc-subline__dot{width:8px;height:8px;border-radius:50%;background:#9A938C;}
+			.oc-subline--ok .oc-subline__dot{background:#2E7D52;}
+			.oc-subline--warn .oc-subline__dot{background:#C77D0A;}
+			.oc-subline__status{font-weight:600;color:#3A3330;}
+			.oc-subline--ok .oc-subline__status{color:#1e7a42;}
+			.oc-subline--warn .oc-subline__status{color:#8a5a0a;}
+			.oc-subline__sep{color:#C9BFC1;}
+		</style>
+		<?php
 	}
 
 	// ─── Tier catalogue (single source of truth) ────────────────────────────
