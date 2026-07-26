@@ -100,6 +100,7 @@ class OC_Plugin {
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_safety_page' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_event_page' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_marketplace_pages' ] );
+			add_action( 'admin_init', [ $this, 'maybe_heal_rsvp_schema' ] );
 		}
 	}
 
@@ -245,6 +246,33 @@ class OC_Plugin {
 			] );
 		}
 		set_transient( 'oc_event_page_ok', 1, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Repair a stale oc_rsvps schema on installs that predate the current shape:
+	 *  - `attending` created as a tinyint(1) boolean (coerces the yes/no/maybe
+	 *    string to 0 on insert);
+	 *  - `created` missing its CURRENT_TIMESTAMP default (stores 0000-00-00).
+	 * Cheap column probe, transient-guarded so it only runs once a day per site;
+	 * the real fix lives in the idempotent OC_Activator::create_tables().
+	 */
+	public function maybe_heal_rsvp_schema() {
+		if ( get_transient( 'oc_rsvp_schema_ok' ) ) {
+			return;
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'oc_rsvps';
+		$type  = $wpdb->get_var( $wpdb->prepare(
+			"SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'attending'",
+			DB_NAME,
+			$table
+		) );
+		// $type is null when the table doesn't exist yet — nothing to heal.
+		if ( $type && 'varchar' !== strtolower( $type ) && class_exists( 'OC_Activator' ) ) {
+			OC_Activator::create_tables();
+		}
+		set_transient( 'oc_rsvp_schema_ok', 1, DAY_IN_SECONDS );
 	}
 
 	/**

@@ -74,8 +74,15 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 			</div>
 
 			<div class="oc-rsvp__field">
-				<label for="oc-rsvp-count"><?php esc_html_e( 'Number of guests (including you)', 'owambe-connect-core' ); ?></label>
-				<input id="oc-rsvp-count" type="number" name="guest_count" value="1" min="1" max="99" step="1" inputmode="numeric" />
+				<label for="oc-rsvp-count"><?php esc_html_e( 'Number of guests', 'owambe-connect-core' ); ?></label>
+				<div class="oc-rsvp__guests">
+					<div class="oc-stepper" data-oc-stepper>
+						<button type="button" class="oc-stepper__btn" data-step="-1" aria-label="<?php esc_attr_e( 'Decrease guests', 'owambe-connect-core' ); ?>">&minus;</button>
+						<input id="oc-rsvp-count" class="oc-stepper__input" type="number" name="guest_count" value="1" min="1" max="99" step="1" inputmode="numeric" />
+						<button type="button" class="oc-stepper__btn" data-step="1" aria-label="<?php esc_attr_e( 'Increase guests', 'owambe-connect-core' ); ?>">&plus;</button>
+					</div>
+					<span class="oc-rsvp__hint"><?php esc_html_e( 'Including yourself', 'owambe-connect-core' ); ?></span>
+				</div>
 			</div>
 
 			<div class="oc-rsvp__field">
@@ -97,22 +104,39 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 	margin: 0 auto;
 	background: #fff;
 	border: 1px solid var(--oc-border, #E4DDD2);
-	border-radius: 16px;
-	box-shadow: 0 10px 30px rgba(110, 15, 44, 0.06);
-	padding: 28px;
+	border-radius: 18px;
+	box-shadow: 0 12px 34px rgba(110, 15, 44, 0.07);
+	padding: clamp(24px, 5vw, 36px);
 }
-.oc-rsvp__head { text-align: center; margin: 0 0 1.25rem; }
-.oc-rsvp__title { font-size: 1.5rem; font-weight: 700; color: var(--oc-ink, #1F1B1A); margin: 0 0 0.35rem; }
-.oc-rsvp__sub { font-size: 14.5px; color: #6B6361; margin: 0; line-height: 1.5; }
+.oc-rsvp__head { text-align: center; margin: 0 0 1.75rem; }
+.oc-rsvp__title {
+	font-size: clamp(1.4rem, 3.5vw, 1.6rem);
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	color: var(--oc-burgundy, #581825);
+	margin: 0 0 0.45rem;
+}
+.oc-rsvp__sub { font-size: 14.5px; color: #6B6361; margin: 0 auto; max-width: 36ch; line-height: 1.55; }
 
-.oc-rsvp__field { margin: 0 0 1.05rem; }
+/* Even vertical rhythm via a single gap — hidden inputs are pulled out of flow
+   so they never introduce phantom gaps at the top of the stack. */
+.oc-rsvp__form { display: flex; flex-direction: column; gap: 18px; }
+.oc-rsvp__form > input[type="hidden"] { display: none; }
+
+.oc-rsvp__field { margin: 0; }
 .oc-rsvp__field > label,
-.oc-rsvp__label { display: block; font-weight: 600; font-size: 13.5px; color: #3A3330; margin: 0 0 6px; }
+.oc-rsvp__label {
+	display: block;
+	font-weight: 600;
+	font-size: 13px;
+	letter-spacing: 0.01em;
+	color: #3A3330;
+	margin: 0 0 7px;
+}
 .oc-req { color: #C0392B; font-weight: 700; }
 
 .oc-rsvp__field input[type="text"],
 .oc-rsvp__field input[type="email"],
-.oc-rsvp__field input[type="number"],
 .oc-rsvp__field textarea {
 	width: 100%;
 	box-sizing: border-box;
@@ -124,7 +148,11 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 	border-radius: 10px;
 	transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-.oc-rsvp__field input:focus,
+.oc-rsvp__field textarea { resize: vertical; min-height: 86px; }
+.oc-rsvp__field input::placeholder,
+.oc-rsvp__field textarea::placeholder { color: #A79FA0; }
+.oc-rsvp__field input[type="text"]:focus,
+.oc-rsvp__field input[type="email"]:focus,
 .oc-rsvp__field textarea:focus {
 	outline: none;
 	background: #fff;
@@ -132,12 +160,65 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 	box-shadow: 0 0 0 3px rgba(110, 15, 44, 0.10);
 }
 
-.oc-rsvp__choices { display: flex; gap: 10px; flex-wrap: wrap; }
-.oc-rsvp__choice {
+/* Number of guests — a compact stepper, balanced by a helper caption so the
+   row never leaves an awkward empty gap. */
+.oc-rsvp__guests { display: flex; align-items: center; gap: 14px; }
+.oc-stepper {
 	display: inline-flex;
 	align-items: center;
-	gap: 7px;
-	padding: 9px 16px;
+	background: #FAF8F5;
+	border: 1px solid var(--oc-border, #E4DDD2);
+	border-radius: 10px;
+	overflow: hidden;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.oc-stepper:focus-within {
+	border-color: var(--oc-burgundy, #6E0F2C);
+	box-shadow: 0 0 0 3px rgba(110, 15, 44, 0.10);
+	background: #fff;
+}
+.oc-stepper__btn {
+	width: 44px;
+	height: 46px;
+	border: 0;
+	background: transparent;
+	font-size: 20px;
+	line-height: 1;
+	font-weight: 600;
+	color: var(--oc-burgundy, #6E0F2C);
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+.oc-stepper__btn:hover { background: rgba(110, 15, 44, 0.08); }
+.oc-stepper__input {
+	width: 46px;
+	height: 46px;
+	text-align: center;
+	border: 0;
+	background: transparent;
+	font-size: 16px;
+	font-weight: 700;
+	color: #1F1B1A;
+	padding: 0;
+	-moz-appearance: textfield;
+	appearance: textfield;
+}
+.oc-stepper__input::-webkit-outer-spin-button,
+.oc-stepper__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.oc-stepper__input:focus { outline: none; }
+.oc-rsvp__hint { font-size: 13px; color: #8A8385; }
+
+/* "Will you attend?" — an even segmented pill control. The native radios are
+   overlaid transparently so the whole pill is clickable + keyboard-focusable,
+   and :has() paints the chosen pill. */
+.oc-rsvp__choices { display: flex; gap: 10px; }
+.oc-rsvp__choice {
+	flex: 1 1 0;
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 11px 12px;
 	background: #FAF8F5;
 	border: 1px solid var(--oc-border, #E4DDD2);
 	border-radius: 10px;
@@ -145,12 +226,28 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 	font-size: 14px;
 	color: #3A3330;
 	cursor: pointer;
-	transition: border-color 0.15s ease, background 0.15s ease;
+	text-align: center;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.oc-rsvp__choice input {
+	position: absolute;
+	inset: 0;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
 }
 .oc-rsvp__choice:hover { border-color: #C9A961; }
-.oc-rsvp__choice input { accent-color: var(--oc-burgundy, #6E0F2C); }
+.oc-rsvp__choice:has(input:checked) {
+	background: var(--oc-burgundy, #6E0F2C);
+	border-color: var(--oc-burgundy, #6E0F2C);
+	color: #fff;
+}
+.oc-rsvp__choice:focus-within {
+	border-color: var(--oc-burgundy, #6E0F2C);
+	box-shadow: 0 0 0 3px rgba(110, 15, 44, 0.15);
+}
 
-.oc-rsvp__actions { margin-top: 0.5rem; }
+.oc-rsvp__actions { margin: 4px 0 0; }
 
 /* Honeypot — visually hidden but present in the DOM for bots. */
 .oc-hp {
@@ -162,3 +259,27 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 	overflow: hidden;
 }
 </style>
+
+<script>
+( function () {
+	document.querySelectorAll( '[data-oc-stepper]' ).forEach( function ( stepper ) {
+		var input = stepper.querySelector( '.oc-stepper__input' );
+		if ( ! input ) { return; }
+		var min = parseInt( input.min, 10 ); if ( isNaN( min ) ) { min = 1; }
+		var max = parseInt( input.max, 10 ); if ( isNaN( max ) ) { max = 99; }
+		function clampValue() {
+			var v = parseInt( input.value, 10 );
+			if ( isNaN( v ) ) { v = min; }
+			input.value = Math.max( min, Math.min( max, v ) );
+		}
+		stepper.querySelectorAll( '.oc-stepper__btn' ).forEach( function ( btn ) {
+			btn.addEventListener( 'click', function () {
+				var step = parseInt( btn.getAttribute( 'data-step' ), 10 ) || 0;
+				var v = parseInt( input.value, 10 ); if ( isNaN( v ) ) { v = min; }
+				input.value = Math.max( min, Math.min( max, v + step ) );
+			} );
+		} );
+		input.addEventListener( 'change', clampValue );
+	} );
+} )();
+</script>

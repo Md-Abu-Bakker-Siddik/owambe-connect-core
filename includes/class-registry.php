@@ -236,7 +236,7 @@ class OC_Registry {
 		</div>
 		<style>
 			.oc-reg__toggle{display:flex;align-items:center;gap:9px;font-size:14px;color:#3A3330;font-weight:600;cursor:pointer;margin:0 0 6px;}
-			.oc-reg__toggle input{width:16px;height:16px;accent-color:#6E0F2C;}
+			.oc-reg__toggle input{width:16px;height:16px;accent-color:#6E0F2C;margin:0;}
 			.oc-reg__hint{margin:0 0 14px;color:#6B6361;font-size:13.5px;line-height:1.5;}
 			.oc-reg__rows{display:flex;flex-direction:column;gap:10px;}
 			.oc-reg__row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}

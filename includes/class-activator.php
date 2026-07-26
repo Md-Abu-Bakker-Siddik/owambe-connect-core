@@ -81,6 +81,20 @@ class OC_Activator {
 		if ( empty( $created_default ) ) {
 			$wpdb->query( "ALTER TABLE `{$rsvps}` MODIFY created DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" );
 		}
+
+		// Older installs created `attending` as a tinyint(1) boolean. dbDelta does
+		// not change an existing column's TYPE, so those tables silently coerce the
+		// 'yes'/'no'/'maybe' string to 0 on insert. Widen it to VARCHAR(10) here so
+		// the guest's actual choice is stored. Idempotent once it's already varchar.
+		$attending_type = $wpdb->get_var( $wpdb->prepare(
+			"SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'attending'",
+			DB_NAME,
+			$rsvps
+		) );
+		if ( $attending_type && 'varchar' !== strtolower( $attending_type ) ) {
+			$wpdb->query( "ALTER TABLE `{$rsvps}` MODIFY attending VARCHAR(10) NOT NULL DEFAULT ''" );
+		}
 	}
 
 	public static function deactivate() {
