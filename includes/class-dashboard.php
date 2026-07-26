@@ -68,6 +68,24 @@ class OC_Dashboard {
 		// Block wp-admin for vendor-only users.
 		add_action( 'admin_init', [ $this, 'block_wp_admin_for_vendors' ] );
 		add_action( 'wp_login',   [ $this, 'redirect_vendor_after_login' ], 10, 2 );
+
+		// Belt-and-braces: never let WooCommerce bounce a manage_options user to
+		// /my-account/ via its "prevent admin access" behaviour. Marketplace-only
+		// roles are still routed to their own dashboards above; this only ever
+		// relaxes the guard for real administrators.
+		add_filter( 'woocommerce_prevent_admin_access', [ $this, 'allow_admin_woocommerce_access' ] );
+	}
+
+	/**
+	 * Let administrators reach /wp-admin/ even when WooCommerce is active — WC
+	 * otherwise redirects users to /my-account/. Only affects manage_options
+	 * users; everyone else keeps WooCommerce's default behaviour.
+	 *
+	 * @param bool $prevent Whether WooCommerce would block admin access.
+	 * @return bool
+	 */
+	public function allow_admin_woocommerce_access( $prevent ) {
+		return current_user_can( 'manage_options' ) ? false : $prevent;
 	}
 
 	public function block_wp_admin_for_vendors() {
