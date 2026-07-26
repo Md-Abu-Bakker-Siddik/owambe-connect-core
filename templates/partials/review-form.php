@@ -114,3 +114,32 @@ $can_post  = $is_client || current_user_can( 'manage_options' );
 	<?php endif; ?>
 
 </div>
+<style>
+/* ─── Star rating control ────────────────────────────────────────────────────
+   The radios are the real form control but must never show as round indicators
+   — they're visually hidden (kept in the DOM + focusable for keyboard/screen-
+   reader users) and the ★ labels do the talking. Markup renders 5→1, so with
+   row-reverse the stars read 1→5 left-to-right and `input:checked ~ label`
+   lights the chosen star plus everything below it. */
+.oc-review-form__rating { border: 0; padding: 0; margin: 0 0 16px; }
+.oc-review-form__rating legend { font-weight: 600; font-size: 14px; color: #3A3330; margin: 0 0 6px; padding: 0; }
+.oc-review-form__stars { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 4px; }
+.oc-review-form__stars input {
+	position: absolute;
+	width: 1px; height: 1px;
+	opacity: 0;
+	pointer-events: none;
+}
+.oc-review-form__stars label {
+	cursor: pointer;
+	font-size: 30px;
+	line-height: 1;
+	color: #E4DAD0;
+	transition: color .12s ease, transform .12s ease;
+}
+.oc-review-form__stars label:hover { transform: scale(1.12); }
+.oc-review-form__stars input:checked ~ label,
+.oc-review-form__stars label:hover,
+.oc-review-form__stars label:hover ~ label { color: #C9A961; }
+.oc-review-form__stars input:focus-visible + label { outline: 2px solid #6E0F2C; outline-offset: 3px; border-radius: 6px; }
+</style>
