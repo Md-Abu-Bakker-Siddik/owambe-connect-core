@@ -31,7 +31,9 @@ class OC_Admin_Retailers {
 		add_submenu_page(
 			'edit.php?post_type=' . OC_CPT,
 			__( 'Approved Retailers', 'owambe-connect-core' ),
-			__( 'Approved Retailers', 'owambe-connect-core' ),
+			// Menu label carries an inline dashicon (WP renders the title
+			// unescaped); the page title above stays clean for the browser tab.
+			'<span class="dashicons dashicons-store" aria-hidden="true" style="font-size:17px;vertical-align:-3px;margin-right:2px;"></span> ' . __( 'Approved Retailers', 'owambe-connect-core' ),
 			'manage_options',
 			self::PAGE,
 			[ $this, 'render' ]
@@ -89,8 +91,21 @@ class OC_Admin_Retailers {
 		if ( isset( $_POST['oc_registry_shops_submit'] ) ) {
 			check_admin_referer( self::NONCE );
 			update_option( 'oc_registry_shops', self::collect_from_post() );
+
+			// Master toggles live in the shared oc_settings option (read by
+			// OC_Registry via oc_get_setting). Merge in the two keys so the rest
+			// of the settings array is left untouched.
+			$settings = get_option( 'oc_settings', [] );
+			$settings = is_array( $settings ) ? $settings : [];
+			$settings['registry_part_a_enabled'] = empty( $_POST['registry_part_a_enabled'] ) ? 0 : 1;
+			$settings['registry_part_b_enabled'] = empty( $_POST['registry_part_b_enabled'] ) ? 0 : 1;
+			update_option( 'oc_settings', $settings );
+
 			$saved = true;
 		}
+
+		$part_a = (bool) (int) oc_get_setting( 'registry_part_a_enabled', 0 );
+		$part_b = (bool) (int) oc_get_setting( 'registry_part_b_enabled', 0 );
 
 		// After a save, read straight back from the option so an all-empty save
 		// shows exactly what's stored (rather than shops()' seeded default).
@@ -116,6 +131,25 @@ class OC_Admin_Retailers {
 
 			<form method="post" action="">
 				<?php wp_nonce_field( self::NONCE ); ?>
+
+				<h2 class="oc-retailers__h2"><?php esc_html_e( 'Master switches', 'owambe-connect-core' ); ?></h2>
+				<p class="description" style="max-width:820px;margin-top:0;">
+					<?php esc_html_e( 'Turn each registry feature on for the whole site. Clients still choose whether to show it on their own event. When a part is off, it is hidden everywhere regardless of retailers or client settings.', 'owambe-connect-core' ); ?>
+				</p>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Part A — external registries', 'owambe-connect-core' ); ?></th>
+						<td><label><input type="checkbox" name="registry_part_a_enabled" value="1" <?php checked( $part_a ); ?> /> <strong><?php esc_html_e( 'Enable external gift registries on event pages', 'owambe-connect-core' ); ?></strong></label>
+							<p class="description"><?php esc_html_e( 'Clients add registries they created on other shops; guests get a “View Registry” button. The link only shows when its shop is approved below.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Part B — Owambe registry', 'owambe-connect-core' ); ?></th>
+						<td><label><input type="checkbox" name="registry_part_b_enabled" value="1" <?php checked( $part_b ); ?> /> <strong><?php esc_html_e( 'Enable the built-in Owambe registry', 'owambe-connect-core' ); ?></strong></label>
+							<p class="description"><?php esc_html_e( 'The in-page registry: items to buy or contribute to, with the client’s own payment details. Gift links must match an approved retailer below.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+				</table>
+
+				<h2 class="oc-retailers__h2"><?php esc_html_e( 'Approved retailers', 'owambe-connect-core' ); ?></h2>
 				<table class="wp-list-table widefat fixed striped oc-retailers__table">
 					<thead>
 						<tr>
@@ -154,6 +188,7 @@ class OC_Admin_Retailers {
 		</div>
 
 		<style>
+			.oc-retailers__h2{margin:26px 0 6px;padding-bottom:6px;border-bottom:2px solid #C9A961;color:#6E0F2C;font-family:Georgia,serif;}
 			.oc-retailers__table input[type="text"]{width:100%;}
 			.oc-retailers__remove{color:#b32d3a;}
 			.oc-retailers__remove:hover{color:#8a2b3a;}

@@ -184,8 +184,11 @@ class OC_Settings {
 		$out['stripe_price_elite']        = isset( $input['stripe_price_elite'] )        ? sanitize_text_field( $input['stripe_price_elite'] )        : '';
 		$out['stripe_price_premium']      = isset( $input['stripe_price_premium'] )      ? sanitize_text_field( $input['stripe_price_premium'] )      : '';
 		$out['billing_enabled']           = ! empty( $input['billing_enabled'] ) ? 1 : 0;
-		$out['registry_part_a_enabled']   = ! empty( $input['registry_part_a_enabled'] ) ? 1 : 0;
-		$out['registry_part_b_enabled']   = ! empty( $input['registry_part_b_enabled'] ) ? 1 : 0;
+		// Registry master toggles are edited on Vendors → Approved Retailers, not
+		// here — so only overwrite them when the field is actually submitted;
+		// otherwise keep the stored value (get_all seeded $out above).
+		$out['registry_part_a_enabled']   = isset( $input['registry_part_a_enabled'] ) ? ( ! empty( $input['registry_part_a_enabled'] ) ? 1 : 0 ) : (int) ( $out['registry_part_a_enabled'] ?? $d['registry_part_a_enabled'] );
+		$out['registry_part_b_enabled']   = isset( $input['registry_part_b_enabled'] ) ? ( ! empty( $input['registry_part_b_enabled'] ) ? 1 : 0 ) : (int) ( $out['registry_part_b_enabled'] ?? $d['registry_part_b_enabled'] );
 
 		// Legal.
 		$out['client_terms_url'] = isset( $input['client_terms_url'] ) ? esc_url_raw( trim( (string) $input['client_terms_url'] ) ) : '';
@@ -444,24 +447,6 @@ class OC_Settings {
 						<th scope="row"><?php esc_html_e( 'Billing master switch', 'owambe-connect-core' ); ?></th>
 						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[billing_enabled]" value="1" <?php checked( $s['billing_enabled'], 1 ); ?>/> <strong><?php esc_html_e( 'Enable billing (charges vendors when subscriptions launch)', 'owambe-connect-core' ); ?></strong></label>
 							<p class="description"><?php esc_html_e( 'Keep OFF — no vendor is charged and no billing UI shows anywhere while this is off. Free-period clocks run regardless.', 'owambe-connect-core' ); ?></p></td>
-					</tr>
-				</tbody></table>
-
-				<h3 class="oc-sub-h">
-					<span class="dashicons dashicons-cart"></span>
-					<?php esc_html_e( 'Gift registry', 'owambe-connect-core' ); ?>
-					<small><?php esc_html_e( 'Master toggles for the event-page registries', 'owambe-connect-core' ); ?></small>
-				</h3>
-				<table class="form-table"><tbody>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Part A — external registries', 'owambe-connect-core' ); ?></th>
-						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[registry_part_a_enabled]" value="1" <?php checked( $s['registry_part_a_enabled'], 1 ); ?>/> <strong><?php esc_html_e( 'Enable external gift registries on event pages', 'owambe-connect-core' ); ?></strong></label>
-							<p class="description"><?php esc_html_e( 'Clients add registries they created on other shops; guests get a View Registry button. Each client also toggles it per event.', 'owambe-connect-core' ); ?></p></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Part B — Owambe registry', 'owambe-connect-core' ); ?></th>
-						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[registry_part_b_enabled]" value="1" <?php checked( $s['registry_part_b_enabled'], 1 ); ?>/> <strong><?php esc_html_e( 'Enable the built-in Owambe registry', 'owambe-connect-core' ); ?></strong></label>
-							<p class="description"><?php esc_html_e( 'The in-page registry with contribute options (built separately).', 'owambe-connect-core' ); ?></p></td>
 					</tr>
 				</tbody></table>
 
