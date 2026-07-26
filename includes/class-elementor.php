@@ -47,6 +47,7 @@ class OC_Elementor {
 		require_once $dir . 'widget-footer.php';
 		require_once $dir . 'widget-client-login.php';
 		require_once $dir . 'widget-client-dashboard.php';
+		require_once $dir . 'widget-event-editor.php';
 
 		$manager->register( new OC_Widget_Hero_Search() );
 		$manager->register( new OC_Widget_Category_Grid() );
@@ -68,5 +69,6 @@ class OC_Elementor {
 		$manager->register( new OC_Widget_Footer() );
 		$manager->register( new OC_Widget_Client_Login() );
 		$manager->register( new OC_Widget_Client_Dashboard() );
+		$manager->register( new OC_Widget_Event_Editor() );
 	}
 }

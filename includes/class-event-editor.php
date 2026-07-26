@@ -26,6 +26,16 @@ class OC_Event_Editor {
 	public function register() {
 		add_shortcode( 'oc_event_editor', [ $this, 'shortcode' ] );
 		add_action( 'admin_post_' . self::ACTION, [ $this, 'handle_save' ] );
+
+		// The editor renders its own hero H1, so drop the theme's page title on
+		// /my-event/ (avoids a bare, duplicate heading).
+		add_filter( 'oc_suppress_page_title_slugs', [ $this, 'suppress_page_title' ] );
+	}
+
+	/** Add 'my-event' to the list of pages whose theme title is suppressed. */
+	public function suppress_page_title( $slugs ) {
+		$slugs[] = 'my-event';
+		return $slugs;
 	}
 
 	/** Meta key for an editor field key (e.g. 'date' → '_oc_event_date'). */

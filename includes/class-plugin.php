@@ -96,6 +96,7 @@ class OC_Plugin {
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_auth_pages' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_client_pages' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_safety_page' ] );
+			add_action( 'admin_init', [ $this, 'maybe_self_heal_event_page' ] );
 			add_action( 'admin_init', [ $this, 'maybe_self_heal_marketplace_pages' ] );
 		}
 	}
@@ -222,6 +223,26 @@ class OC_Plugin {
 			] );
 		}
 		set_transient( 'oc_safety_page_ok', 1, DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Self-heal the /my-event/ page (event editor) so an uploaded plugin copy
+	 * repairs itself without re-activation.
+	 */
+	public function maybe_self_heal_event_page() {
+		if ( get_transient( 'oc_event_page_ok' ) ) {
+			return;
+		}
+		if ( ! get_page_by_path( 'my-event' ) ) {
+			wp_insert_post( [
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => __( 'My Event', 'owambe-connect-core' ),
+				'post_name'    => 'my-event',
+				'post_content' => '[oc_event_editor]',
+			] );
+		}
+		set_transient( 'oc_event_page_ok', 1, DAY_IN_SECONDS );
 	}
 
 	/**
