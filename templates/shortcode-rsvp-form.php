@@ -120,7 +120,11 @@ $feedback = isset( $_GET['oc_rsvp'] ) ? sanitize_key( wp_unslash( $_GET['oc_rsvp
 
 /* Even vertical rhythm via a single gap — hidden inputs are pulled out of flow
    so they never introduce phantom gaps at the top of the stack. */
-.oc-rsvp__form { display: flex; flex-direction: column; gap: 18px; }
+/* text-align:left is explicit — the card can sit inside centred contexts
+   (event hero column, theme article styles), and labels must never inherit
+   that centring. The Yes/No/Maybe pills keep their own centred text via
+   flex justify-content. */
+.oc-rsvp__form { display: flex; flex-direction: column; gap: 18px; text-align: left; }
 .oc-rsvp__form > input[type="hidden"] { display: none; }
 
 .oc-rsvp__field { margin: 0; }

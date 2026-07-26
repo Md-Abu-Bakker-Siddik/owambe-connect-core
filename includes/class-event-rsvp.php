@@ -312,31 +312,53 @@ class OC_Event_RSVP {
 		global $wpdb;
 		$table = $wpdb->prefix . 'oc_rsvps';
 		$count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE event_id = %d", $event_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$dl_icon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M6 11l6 6 6-6M5 21h14"/></svg>';
 		?>
 		<div class="oc-eved__section oc-guests">
 			<h2 class="oc-eved__section-title"><?php esc_html_e( 'Guest list', 'owambe-connect-core' ); ?></h2>
-			<p class="oc-guests__count">
+			<div class="oc-guests__card">
+				<div class="oc-guests__stat">
+					<span class="oc-guests__ico" aria-hidden="true">
+						<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+					</span>
+					<span class="oc-guests__figures">
+						<strong class="oc-guests__num"><?php echo (int) $count; ?></strong>
+						<span class="oc-guests__lbl"><?php echo esc_html( _n( 'RSVP received', 'RSVPs received', $count, 'owambe-connect-core' ) ); ?></span>
+					</span>
+				</div>
+				<?php if ( $count > 0 ) : ?>
+					<a class="oc-guests__btn" href="<?php echo esc_url( self::export_url( $event_id ) ); ?>">
+						<?php echo $dl_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static inline SVG. ?>
+						<?php esc_html_e( 'Download CSV', 'owambe-connect-core' ); ?>
+					</a>
+				<?php else : ?>
+					<span class="oc-guests__btn oc-guests__btn--off" aria-disabled="true">
+						<?php echo $dl_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static inline SVG. ?>
+						<?php esc_html_e( 'Download CSV', 'owambe-connect-core' ); ?>
+					</span>
+				<?php endif; ?>
+			</div>
+			<p class="oc-guests__hint">
 				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: %d: number of RSVP responses */
-						_n( '%d RSVP so far.', '%d RSVPs so far.', $count, 'owambe-connect-core' ),
-						$count
-					)
-				);
+				if ( $count > 0 ) {
+					esc_html_e( 'Everyone who has responded — names, emails, responses, party sizes and notes — in a spreadsheet-ready file for Excel or Google Sheets.', 'owambe-connect-core' );
+				} else {
+					esc_html_e( 'As soon as your first guest responds, you can download the full list here.', 'owambe-connect-core' );
+				}
 				?>
 			</p>
-			<?php if ( $count > 0 ) : ?>
-				<a class="oc-guests__btn" href="<?php echo esc_url( self::export_url( $event_id ) ); ?>"><?php esc_html_e( 'Download guest list (CSV)', 'owambe-connect-core' ); ?></a>
-			<?php else : ?>
-				<span class="oc-guests__btn oc-guests__btn--off" aria-disabled="true"><?php esc_html_e( 'Download guest list (CSV)', 'owambe-connect-core' ); ?></span>
-			<?php endif; ?>
 		</div>
 		<style>
-			.oc-guests__count{margin:0 0 12px;color:#6B6361;font-size:14px;}
-			.oc-guests__btn{display:inline-flex;align-items:center;padding:10px 18px;border-radius:10px;background:#600E26;color:#fff;font-size:14px;font-weight:600;text-decoration:none;}
-			.oc-guests__btn:hover{background:#7a1230;color:#fff;}
-			.oc-guests__btn--off{background:#EFE7E9;color:#A99BA0;cursor:default;pointer-events:none;}
+			.oc-guests__card{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:18px 20px;background:#FAF8F5;border:1px solid var(--oc-border,#EAE2DA);border-radius:14px;}
+			.oc-guests__stat{display:flex;align-items:center;gap:14px;}
+			.oc-guests__ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:13px;background:linear-gradient(135deg,#FBEEF1,#F3DFE5);color:#6E0F2C;}
+			.oc-guests__figures{display:flex;flex-direction:column;line-height:1.15;}
+			.oc-guests__num{font-size:23px;font-weight:800;color:#3A1220;font-variant-numeric:tabular-nums;}
+			.oc-guests__lbl{margin-top:3px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8A7F82;}
+			.oc-guests__btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;background:#600E26;color:#fff;font-size:14px;font-weight:600;text-decoration:none;box-shadow:0 4px 12px rgba(96,14,38,.18);transition:background .15s ease,box-shadow .15s ease,transform .1s ease;}
+			.oc-guests__btn:hover{background:#7a1230;color:#fff;box-shadow:0 7px 18px rgba(96,14,38,.26);transform:translateY(-1px);}
+			.oc-guests__btn--off{background:#EFE7E9;color:#A99BA0;box-shadow:none;cursor:default;pointer-events:none;}
+			.oc-guests__hint{margin:12px 2px 0;color:#6B6361;font-size:13.5px;line-height:1.55;padding-top:15px;}
 		</style>
 		<?php
 	}

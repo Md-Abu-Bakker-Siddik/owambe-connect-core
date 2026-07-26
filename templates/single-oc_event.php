@@ -99,20 +99,36 @@ get_header();
 
 				<?php
 				/**
-				 * After the event body — extension point for event sections such as
-				 * the gift registry (OC_Registry renders here).
+				 * After the event body come two engagement sections: the gift
+				 * registry (rendered by OC_Registry on the oc_event_after_content
+				 * hook) and the RSVP form. Capture both, then — when BOTH are
+				 * present — lay them out side by side in a two-column grid
+				 * (registry left, RSVP right) that stacks on narrow screens.
+				 * If only one exists it renders full-width as before.
 				 *
-				 * @param int $event_id
+				 * @param int $oc_event_id
 				 */
+				ob_start();
 				do_action( 'oc_event_after_content', $oc_event_id );
-				?>
+				$oc_registry_html = trim( ob_get_clean() );
 
-				<?php
-				// Auto-render the RSVP form at the bottom of every event page, so
-				// clients don't have to paste the shortcode into the editor. Guard
-				// against a double form if they added [oc_rsvp_form] to the content.
-				if ( false === strpos( (string) get_the_content(), '[oc_rsvp_form' ) ) {
-					echo '<div class="oc-event__rsvp">' . do_shortcode( '[oc_rsvp_form]' ) . '</div>';
+				// Guard against a double form if the client pasted [oc_rsvp_form].
+				$oc_rsvp_html = ( false === strpos( (string) get_the_content(), '[oc_rsvp_form' ) )
+					? trim( do_shortcode( '[oc_rsvp_form]' ) )
+					: '';
+
+				if ( '' !== $oc_registry_html && '' !== $oc_rsvp_html ) {
+					echo '<div class="oc-event__engage">';
+					echo '<div class="oc-event__engage-col oc-event__engage-col--registry">' . $oc_registry_html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					echo '<div class="oc-event__engage-col oc-event__engage-col--rsvp">' . $oc_rsvp_html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					echo '</div>';
+				} else {
+					if ( '' !== $oc_registry_html ) {
+						echo $oc_registry_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					}
+					if ( '' !== $oc_rsvp_html ) {
+						echo '<div class="oc-event__rsvp">' . $oc_rsvp_html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					}
 				}
 				?>
 			</article>
@@ -150,7 +166,11 @@ get_header();
 .oc-event-single__inner {
 	position: relative;
 	z-index: 1;
-	max-width: 768px;
+	/* Wide enough for the two-column engage grid; the hero title and the
+	   description keep their own narrower max-widths, so reading comfort
+	   is unchanged. (Matches .oc-container's 1200px cap, so the theme
+	   class on the same element never fights this value.) */
+	max-width: 1200px;
 	margin: 0 auto;
 	padding: clamp(2.5rem, 5vw, 4rem) 1.25rem;
 }
@@ -175,8 +195,6 @@ get_header();
 	line-height: 1.06;
 	font-weight: 800;
 	letter-spacing: -0.02em;
-	margin: 0 auto 1.35rem;
-	max-width: 18ch;
 	text-wrap: balance;
 }
 
@@ -192,20 +210,20 @@ get_header();
 	color: var(--oc-ev-gold-deep);
 }
 .oc-event__section-sub {
-	margin: 0 auto 1.6rem;
-	max-width: 44ch;
+	margin: 0 auto 1.8rem;
+	max-width: 48ch;
 	color: #8A7F82;
-	font-size: 14.5px;
-	line-height: 1.6;
+	font-size: 16px;
+	line-height: 1.65;
 }
 /* Shared registry heading — defined here (always present) so a section works
    whichever gift-registry part is enabled. */
 .oc-event__registry-title {
 	color: var(--oc-ev-burgundy);
-	font-size: clamp(1.5rem, 3vw, 1.95rem);
+	font-size: clamp(1.75rem, 3.4vw, 2.3rem);
 	font-weight: 800;
 	letter-spacing: -0.01em;
-	margin: 0 0 0.5rem;
+	margin: 0 0 0.6rem;
 }
 
 /* Meta badges */
@@ -258,12 +276,12 @@ get_header();
 
 /* ── Description / body ───────────────────────────────────────────────────── */
 .oc-event__content {
-	max-width: 600px;
+	max-width: unset;
 	margin: 0 auto;
 	text-align: center;
 	color: var(--oc-ev-ink-soft);
-	font-size: clamp(1.02rem, 1.6vw, 1.1rem);
-	line-height: 1.8;
+	font-size: clamp(1.1rem, 1.8vw, 1.22rem);
+	line-height: 1.85;
 }
 .oc-event__content > * + * { margin-top: 1.1rem; }
 .oc-event__content a { color: var(--oc-ev-burgundy); text-underline-offset: 2px; }
@@ -282,6 +300,59 @@ get_header();
 	margin-top: clamp(2.25rem, 5vw, 3.25rem) !important;
 	padding-top: clamp(2.25rem, 5vw, 3.25rem);
 	border-top: 1px solid var(--oc-ev-border);
+}
+
+/* ── Engage grid — registry + RSVP side by side ──────────────────────────────
+   When BOTH the gift registry and the RSVP form are present, the template wraps
+   them in .oc-event__engage: registry left, RSVP right. The grid owns the single
+   band divider; the sections inside drop their own so no double rules appear.
+   Stacks back to one column on tablets/phones. */
+.oc-event__engage {
+	display: grid;
+	/* minmax(0,1fr) — a bare 1fr means minmax(auto,1fr), so the RSVP form's
+	   intrinsic min-content width could grow its track wider than the registry's.
+	   Zero-basing both tracks guarantees a true 50/50 split. */
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: clamp(1.75rem, 3.5vw, 3rem);
+	align-items: start;
+	margin-top: clamp(2.25rem, 5vw, 3.25rem);
+	padding-top: clamp(2.25rem, 5vw, 3.25rem);
+	border-top: 1px solid var(--oc-ev-border);
+}
+.oc-event__engage-col { min-width: 0; display: flex; flex-direction: column; gap: 2.25rem; }
+.oc-event-single .oc-event__engage .oc-event__registry,
+.oc-event-single .oc-event__engage .oc-event__registryb {
+	margin-top: 0 !important;
+	padding-top: 0;
+	border-top: 0;
+	max-width: none; /* fill the column; the column defines the width */
+	width: 100%;     /* …and stretch to it, matching the RSVP card's weight */
+}
+.oc-event__engage .oc-event__registry-list { width: 100%; }
+
+/* Left-aligned headers inside the grid — centred text reads oddly in half-width
+   columns; left alignment matches the form fields and the card content, so both
+   columns share one clean structure. (Full-width fallback stays centred.) */
+.oc-event__engage .oc-event__registry,
+.oc-event__engage .oc-event__registryb { text-align: left; }
+.oc-event__engage .oc-event__section-sub { margin-left: 0; margin-right: 0; }
+.oc-event__engage .oc-rsvp__head { text-align: left; }
+.oc-event__engage .oc-rsvp__sub { margin-left: 0; margin-right: 0; }
+.oc-event__engage .oc-rsvp { margin: 0; }
+.oc-event__engage .oc-rsvp__card { max-width: none; }
+/* Part B's card grid inside a half-width column: slightly smaller minimum so
+   two cards still fit side by side. */
+.oc-event__engage .oc-regb-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+@media (max-width: 900px) {
+	.oc-event__engage { grid-template-columns: 1fr; gap: 0; }
+	/* Stacked again — restore the band divider between the two sections. */
+	.oc-event__engage-col--rsvp {
+		margin-top: clamp(2.25rem, 5vw, 3.25rem);
+		padding-top: clamp(2.25rem, 5vw, 3.25rem);
+		border-top: 1px solid var(--oc-ev-border);
+	}
+	.oc-event__engage .oc-rsvp__card { max-width: 520px; }
 }
 
 @media (max-width: 600px) {
