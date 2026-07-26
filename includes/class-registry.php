@@ -293,7 +293,9 @@ class OC_Registry {
 		}
 		?>
 		<section class="oc-event__registry" aria-label="<?php esc_attr_e( 'Gift registry', 'owambe-connect-core' ); ?>">
+			<span class="oc-event__section-eyebrow"><?php esc_html_e( 'With love', 'owambe-connect-core' ); ?></span>
 			<h2 class="oc-event__registry-title"><?php esc_html_e( 'Gift registry', 'owambe-connect-core' ); ?></h2>
+			<p class="oc-event__section-sub"><?php esc_html_e( 'Browse our chosen registries and pick something they&#8217;ll love.', 'owambe-connect-core' ); ?></p>
 			<div class="oc-event__registry-list">
 				<?php foreach ( $rows as $r ) :
 					$href  = self::affiliate_url( $r['url'] );
@@ -303,20 +305,28 @@ class OC_Registry {
 					}
 					?>
 					<a class="oc-event__registry-item" href="<?php echo esc_url( $href ); ?>" target="_blank" rel="noopener nofollow sponsored">
+						<span class="oc-event__registry-ico" aria-hidden="true">
+							<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 22V7M12 7S12 3 9.5 3 7 5.5 7 7h5zM12 7s0-4 2.5-4S17 5.5 17 7h-5z"/></svg>
+						</span>
 						<span class="oc-event__registry-name"><?php echo esc_html( $label ); ?></span>
-						<span class="oc-event__registry-cta"><?php esc_html_e( 'View Registry', 'owambe-connect-core' ); ?> &rarr;</span>
+						<span class="oc-event__registry-cta"><?php esc_html_e( 'View Registry', 'owambe-connect-core' ); ?><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
 					</a>
 				<?php endforeach; ?>
 			</div>
 		</section>
 		<style>
-			.oc-event__registry{max-width:650px;margin:clamp(1.75rem,4vw,2.5rem) auto 0;text-align:center;}
-			.oc-event__registry-title{color:#581825;font-size:clamp(1.4rem,3vw,1.8rem);font-weight:800;margin:0 0 1rem;}
-			.oc-event__registry-list{display:flex;flex-direction:column;gap:12px;}
-			.oc-event__registry-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:#fff;border:1px solid #ECE4E6;border-left:3px solid #581825;border-radius:12px;text-decoration:none;transition:box-shadow .15s,transform .05s;box-shadow:0 4px 14px rgba(88,24,37,.05);}
-			.oc-event__registry-item:hover{box-shadow:0 8px 20px rgba(88,24,37,.10);}
-			.oc-event__registry-name{font-weight:700;color:#581825;text-align:left;}
-			.oc-event__registry-cta{flex:0 0 auto;font-weight:600;font-size:13.5px;color:#8a5a66;white-space:nowrap;}
+			.oc-event__registry{max-width:600px;margin:0 auto;text-align:center;}
+			.oc-event__registry-title{color:#581825;font-size:clamp(1.5rem,3vw,1.95rem);font-weight:800;letter-spacing:-0.01em;margin:0 0 .5rem;}
+			.oc-event__registry-list{display:flex;flex-direction:column;gap:14px;}
+			.oc-event__registry-item{display:flex;align-items:center;gap:16px;padding:15px 18px;background:#fff;border:1px solid #F0E7EA;border-radius:16px;text-decoration:none;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;box-shadow:0 6px 20px rgba(88,24,37,.05);}
+			.oc-event__registry-item:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(88,24,37,.12);border-color:#E7D6DB;}
+			.oc-event__registry-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#FBEEF1,#F5E1E7);color:#581825;}
+			.oc-event__registry-name{flex:1 1 auto;min-width:0;font-weight:700;font-size:15.5px;color:#581825;text-align:left;overflow-wrap:anywhere;}
+			.oc-event__registry-cta{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:999px;background:var(--oc-ev-burgundy-soft,rgba(88,24,37,.08));font-weight:600;font-size:13px;color:#581825;white-space:nowrap;transition:background .2s ease,color .2s ease;}
+			.oc-event__registry-item:hover .oc-event__registry-cta{background:#581825;color:#fff;}
+			.oc-event__registry-cta svg{transition:transform .2s ease;}
+			.oc-event__registry-item:hover .oc-event__registry-cta svg{transform:translateX(2px);}
+			@media(max-width:520px){.oc-event__registry-item{flex-wrap:wrap;}.oc-event__registry-cta{margin-left:62px;}}
 		</style>
 		<?php
 	}
@@ -840,7 +850,9 @@ class OC_Registry {
 		};
 		?>
 		<section class="oc-event__registryb" aria-label="<?php esc_attr_e( 'Owambe gift registry', 'owambe-connect-core' ); ?>">
+			<span class="oc-event__section-eyebrow"><?php esc_html_e( 'Give a gift', 'owambe-connect-core' ); ?></span>
 			<h2 class="oc-event__registry-title"><?php esc_html_e( 'Gift registry', 'owambe-connect-core' ); ?></h2>
+			<p class="oc-event__section-sub"><?php esc_html_e( 'Buy a gift or contribute towards something special — straight to the host.', 'owambe-connect-core' ); ?></p>
 			<div class="oc-regb-grid">
 				<?php foreach ( $items as $it ) :
 					$is_gift = ( 'gift' === $it['type'] );
@@ -920,11 +932,13 @@ class OC_Registry {
 			</div>
 		</div>
 		<style>
-			.oc-event__registryb{max-width:860px;margin:clamp(1.75rem,4vw,2.5rem) auto 0;text-align:center;}
-			.oc-regb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;text-align:left;}
-			.oc-regb-card{display:flex;flex-direction:column;background:#fff;border:1px solid #ECE4E6;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(88,24,37,.05);}
-			.oc-regb-card__img{aspect-ratio:4/3;background:#F6EEF0;}
-			.oc-regb-card__img img{width:100%;height:100%;object-fit:cover;display:block;}
+			.oc-event__registryb{max-width:820px;margin:0 auto;text-align:center;}
+			.oc-regb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;text-align:left;}
+			.oc-regb-card{display:flex;flex-direction:column;background:#fff;border:1px solid #F0E9EB;border-radius:18px;overflow:hidden;box-shadow:0 6px 22px rgba(88,24,37,.06);transition:transform .22s ease,box-shadow .22s ease;}
+			.oc-regb-card:hover{transform:translateY(-5px);box-shadow:0 20px 42px rgba(88,24,37,.13);}
+			.oc-regb-card__img{aspect-ratio:4/3;background:#F6EEF0;overflow:hidden;}
+			.oc-regb-card__img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease;}
+			.oc-regb-card:hover .oc-regb-card__img img{transform:scale(1.06);}
 			.oc-regb-card__body{display:flex;flex-direction:column;gap:8px;padding:14px 16px 16px;flex:1 1 auto;}
 			.oc-regb-card__chip{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6E0F2C;background:rgba(110,15,44,.08);padding:3px 9px;border-radius:999px;}
 			.oc-regb-card__title{margin:0;font-size:16px;font-weight:700;color:#581825;line-height:1.3;}
