@@ -472,6 +472,24 @@ function oc_image_mimes_only() {
 }
 
 /**
+ * Parallel to oc_image_mimes_only(), but also allows PDF — for document
+ * uploads (invitation cards, programmes) that may be an image OR a PDF.
+ * Use the same way: as the `mimes` override to wp_handle_upload(), or via
+ * add_filter( 'upload_mimes', 'oc_document_mimes_only' ) around a
+ * media_handle_upload().
+ *
+ * @return array<string,string>
+ */
+function oc_document_mimes_only() {
+	return [
+		'jpg|jpeg|jpe' => 'image/jpeg',
+		'png'          => 'image/png',
+		'webp'         => 'image/webp',
+		'pdf'          => 'application/pdf',
+	];
+}
+
+/**
  * Process a multi-file gallery upload (`<input type="file" name="gallery[]" multiple>`).
  * Each file is validated through oc_handle_image_upload(). Returns array of
  * attachment IDs. Existing IDs in $existing_ids are preserved.

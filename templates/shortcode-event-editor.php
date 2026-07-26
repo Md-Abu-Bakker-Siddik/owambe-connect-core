@@ -21,6 +21,40 @@ $val = static function ( $key ) use ( $event_id ) {
 };
 $title_val = $event ? $event->post_title : '';
 $view_url  = ( $event_id && 'publish' === get_post_status( $event_id ) ) ? get_permalink( $event_id ) : '';
+
+// Saved attachments.
+$cover_id      = $event_id ? (int) get_post_meta( $event_id, OC_Event_Editor::META_COVER, true ) : 0;
+$invitation_id = $event_id ? (int) get_post_meta( $event_id, OC_Event_Editor::META_INVITATION, true ) : 0;
+$gallery_ids   = $event_id ? array_map( 'intval', (array) get_post_meta( $event_id, OC_Event_Editor::META_GALLERY, true ) ) : [];
+
+// Render one preview tile (image thumbnail, or a non-image doc card for PDFs).
+$render_preview = static function ( $att_id, $field_name ) {
+	$att_id = (int) $att_id;
+	if ( ! $att_id || 'attachment' !== get_post_type( $att_id ) ) {
+		return '';
+	}
+	$is_image = (bool) wp_attachment_is_image( $att_id );
+	$name     = get_the_title( $att_id );
+	$name     = '' !== $name ? $name : basename( (string) wp_get_attachment_url( $att_id ) );
+	ob_start();
+	?>
+	<div class="oc-eved__preview<?php echo $is_image ? '' : ' oc-eved__preview--doc'; ?>" data-id="<?php echo esc_attr( $att_id ); ?>">
+		<input type="hidden" name="<?php echo esc_attr( $field_name ); ?>" value="<?php echo esc_attr( $att_id ); ?>" />
+		<?php if ( $is_image ) :
+			$src = wp_get_attachment_image_src( $att_id, 'medium' );
+			?>
+			<span class="oc-eved__preview-media"><img src="<?php echo esc_url( $src ? $src[0] : (string) wp_get_attachment_url( $att_id ) ); ?>" alt="" /></span>
+		<?php else : ?>
+			<span class="oc-eved__preview-media oc-eved__preview-media--doc" aria-hidden="true">
+				<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+			</span>
+			<span class="oc-eved__preview-name"><?php echo esc_html( $name ); ?></span>
+		<?php endif; ?>
+		<button type="button" class="oc-eved__preview-remove" aria-label="<?php esc_attr_e( 'Remove', 'owambe-connect-core' ); ?>">&times;</button>
+	</div>
+	<?php
+	return ob_get_clean();
+};
 ?>
 <section class="oc-eved">
 	<div class="oc-eved__inner">
@@ -88,9 +122,45 @@ $view_url  = ( $event_id && 'publish' === get_post_status( $event_id ) ) ? get_p
 				</div>
 			<?php endforeach; ?>
 
-			<div class="oc-eved__section oc-eved__section--soon">
-				<h2 class="oc-eved__section-title"><?php esc_html_e( 'Photos & invitation', 'owambe-connect-core' ); ?></h2>
-				<p class="oc-eved__soon"><?php esc_html_e( 'Cover photo, gallery and invitation uploads are coming next.', 'owambe-connect-core' ); ?></p>
+			<!-- Cover photo (single image). -->
+			<div class="oc-eved__section">
+				<h2 class="oc-eved__section-title"><?php esc_html_e( 'Cover photo', 'owambe-connect-core' ); ?></h2>
+				<div class="oc-eved__upload" data-oc-upload data-slot="cover" data-multi="0" data-name="cover_id">
+					<div class="oc-eved__previews"><?php echo $render_preview( $cover_id, 'cover_id' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+					<label class="oc-eved__uploadbtn">
+						<input type="file" accept="image/jpeg,image/png,image/webp" hidden />
+						<span><?php esc_html_e( '+ Add cover photo', 'owambe-connect-core' ); ?></span>
+					</label>
+					<p class="oc-eved__uploadmsg" aria-live="polite"></p>
+				</div>
+			</div>
+
+			<!-- Gallery (multiple images). -->
+			<div class="oc-eved__section">
+				<h2 class="oc-eved__section-title"><?php esc_html_e( 'Photo gallery', 'owambe-connect-core' ); ?></h2>
+				<div class="oc-eved__upload" data-oc-upload data-slot="gallery" data-multi="1" data-name="gallery_ids[]">
+					<div class="oc-eved__previews oc-eved__previews--grid">
+						<?php foreach ( $gallery_ids as $gid ) { echo $render_preview( $gid, 'gallery_ids[]' ); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</div>
+					<label class="oc-eved__uploadbtn">
+						<input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
+						<span><?php esc_html_e( '+ Add photos', 'owambe-connect-core' ); ?></span>
+					</label>
+					<p class="oc-eved__uploadmsg" aria-live="polite"></p>
+				</div>
+			</div>
+
+			<!-- Invitation card (image or PDF). -->
+			<div class="oc-eved__section">
+				<h2 class="oc-eved__section-title"><?php esc_html_e( 'Invitation card', 'owambe-connect-core' ); ?></h2>
+				<div class="oc-eved__upload" data-oc-upload data-slot="invitation" data-multi="0" data-name="invitation_id">
+					<div class="oc-eved__previews"><?php echo $render_preview( $invitation_id, 'invitation_id' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+					<label class="oc-eved__uploadbtn">
+						<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden />
+						<span><?php esc_html_e( '+ Add invitation (image or PDF)', 'owambe-connect-core' ); ?></span>
+					</label>
+					<p class="oc-eved__uploadmsg" aria-live="polite"></p>
+				</div>
 			</div>
 
 			<div class="oc-eved__actions">
@@ -157,6 +227,22 @@ $view_url  = ( $event_id && 'publish' === get_post_status( $event_id ) ) ? get_p
 .oc-alert--success{background:#E7F2EB;color:#1e7a42;border:1px solid #b8dcc6;}
 .oc-alert--error{background:#fdecea;color:#b32d2e;border:1px solid #f5c6c2;}
 
+/* ── Uploads ──────────────────────────────────────────────────────────── */
+.oc-eved__upload{display:flex;flex-direction:column;gap:12px;}
+.oc-eved__previews{display:flex;flex-wrap:wrap;gap:12px;}
+.oc-eved__previews:empty{display:none;}
+.oc-eved__preview{position:relative;width:120px;border:1px solid var(--oc-border,#E4DDD2);border-radius:12px;overflow:hidden;background:#FAF8F5;}
+.oc-eved__preview-media{display:flex;align-items:center;justify-content:center;width:120px;height:96px;background:#F1E9EA;color:var(--oc-b);}
+.oc-eved__preview-media img{width:100%;height:100%;object-fit:cover;display:block;}
+.oc-eved__preview-media--doc{flex-direction:column;}
+.oc-eved__preview-name{display:block;padding:6px 8px;font-size:11.5px;color:#6B6361;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.oc-eved__preview-remove{position:absolute;top:5px;right:5px;width:22px;height:22px;line-height:1;border:0;border-radius:50%;background:rgba(31,27,26,.62);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.oc-eved__preview-remove:hover{background:rgba(178,45,46,.9);}
+.oc-eved__uploadbtn{align-self:flex-start;display:inline-flex;align-items:center;padding:9px 16px;border:1px dashed rgba(110,15,44,.4);border-radius:10px;background:rgba(110,15,44,.03);color:var(--oc-b);font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;}
+.oc-eved__uploadbtn:hover{background:rgba(110,15,44,.07);border-color:var(--oc-b);}
+.oc-eved__uploadmsg{margin:0;font-size:13px;color:#8a5a0a;}
+.oc-eved__uploadmsg:empty{display:none;}
+
 /* Stack the date/time pair on narrow screens. */
 @media (max-width:560px){
 	.oc-eved__fields{grid-template-columns:1fr;}
@@ -164,3 +250,96 @@ $view_url  = ( $event_id && 'publish' === get_post_status( $event_id ) ) ? get_p
 	.oc-eved__section{padding:22px 20px;}
 }
 </style>
+
+<script>
+( function () {
+	var CFG = {
+		ajax:   <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
+		action: <?php echo wp_json_encode( OC_Event_Editor::ACTION_UPLOAD ); ?>,
+		nonce:  <?php echo wp_json_encode( wp_create_nonce( OC_Event_Editor::ACTION_UPLOAD ) ); ?>
+	};
+	var root = document.querySelector( '.oc-eved' );
+	if ( ! root ) { return; }
+
+	// Delegated remove — works for server-rendered and freshly-added tiles.
+	root.addEventListener( 'click', function ( e ) {
+		var btn = e.target.closest ? e.target.closest( '.oc-eved__preview-remove' ) : null;
+		if ( ! btn ) { return; }
+		var tile = btn.closest( '.oc-eved__preview' );
+		if ( tile ) { tile.parentNode.removeChild( tile ); }
+	} );
+
+	root.querySelectorAll( '[data-oc-upload]' ).forEach( function ( zone ) {
+		var multi     = zone.getAttribute( 'data-multi' ) === '1';
+		var slot      = zone.getAttribute( 'data-slot' );
+		var fieldName = zone.getAttribute( 'data-name' );
+		var input     = zone.querySelector( 'input[type=file]' );
+		var previews  = zone.querySelector( '.oc-eved__previews' );
+		var msg       = zone.querySelector( '.oc-eved__uploadmsg' );
+		if ( ! input ) { return; }
+
+		input.addEventListener( 'change', function () {
+			var files = Array.prototype.slice.call( input.files || [] );
+			input.value = '';
+			if ( ! multi ) { files = files.slice( 0, 1 ); }
+			files.forEach( uploadOne );
+		} );
+
+		function uploadOne( file ) {
+			if ( ! multi ) { previews.innerHTML = ''; } // single slot: replace.
+			msg.textContent = '<?php echo esc_js( __( 'Uploading…', 'owambe-connect-core' ) ); ?>';
+			var fd = new FormData();
+			fd.append( 'action', CFG.action );
+			fd.append( '_nonce', CFG.nonce );
+			fd.append( 'slot', slot );
+			fd.append( 'file', file );
+			fetch( CFG.ajax, { method: 'POST', credentials: 'same-origin', body: fd } )
+				.then( function ( r ) { return r.json(); } )
+				.then( function ( res ) {
+					if ( ! res || ! res.success ) {
+						msg.textContent = ( res && res.data && res.data.message ) || '<?php echo esc_js( __( 'Upload failed.', 'owambe-connect-core' ) ); ?>';
+						return;
+					}
+					msg.textContent = '';
+					previews.appendChild( makeTile( res.data ) );
+				} )
+				.catch( function () { msg.textContent = '<?php echo esc_js( __( 'Upload failed.', 'owambe-connect-core' ) ); ?>'; } );
+		}
+
+		function makeTile( d ) {
+			var el = document.createElement( 'div' );
+			el.className = 'oc-eved__preview' + ( d.is_image ? '' : ' oc-eved__preview--doc' );
+			el.setAttribute( 'data-id', d.id );
+
+			var hid = document.createElement( 'input' );
+			hid.type = 'hidden'; hid.name = fieldName; hid.value = d.id;
+			el.appendChild( hid );
+
+			var media = document.createElement( 'span' );
+			media.className = 'oc-eved__preview-media' + ( d.is_image ? '' : ' oc-eved__preview-media--doc' );
+			if ( d.is_image ) {
+				var img = document.createElement( 'img' );
+				img.src = d.thumb_url || d.url; img.alt = '';
+				media.appendChild( img );
+			} else {
+				media.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+			}
+			el.appendChild( media );
+
+			if ( ! d.is_image ) {
+				var nm = document.createElement( 'span' );
+				nm.className = 'oc-eved__preview-name';
+				nm.textContent = d.filename || 'Document';
+				el.appendChild( nm );
+			}
+
+			var rm = document.createElement( 'button' );
+			rm.type = 'button'; rm.className = 'oc-eved__preview-remove';
+			rm.setAttribute( 'aria-label', 'Remove' ); rm.innerHTML = '&times;';
+			el.appendChild( rm );
+
+			return el;
+		}
+	} );
+} )();
+</script>
