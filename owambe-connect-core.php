@@ -64,6 +64,7 @@ require_once OC_PLUGIN_DIR . 'includes/class-event-cpt.php';
 require_once OC_PLUGIN_DIR . 'includes/class-event-rsvp.php';
 require_once OC_PLUGIN_DIR . 'includes/class-event-editor.php';
 require_once OC_PLUGIN_DIR . 'includes/class-registry.php';
+require_once OC_PLUGIN_DIR . 'includes/class-admin-retailers.php';
 require_once OC_PLUGIN_DIR . 'includes/class-plugin.php';
 
 register_activation_hook( __FILE__, [ 'OC_Activator', 'activate' ] );
