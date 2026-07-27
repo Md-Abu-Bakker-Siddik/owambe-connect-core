@@ -85,6 +85,7 @@ class OC_Plugin {
 			( new OC_Admin_Import() )->register();
 			( new OC_Admin_Emails() )->register();
 			( new OC_Admin_Retailers() )->register();
+			( new OC_Admin_Subscriptions() )->register();
 		( new OC_Category_Icons() )->register();
 			( new OC_Admin_Analytics() )->register();
 			( new OC_Admin_Security_Health() )->register();

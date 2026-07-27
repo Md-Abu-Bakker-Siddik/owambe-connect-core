@@ -137,9 +137,13 @@ class OC_Vendor_Subscription {
 	 * @return array<string,array> slug => [ label, price_id, rank, features ].
 	 */
 	public static function tiers() {
+		// Display label + price come from Settings (Tier definitions & prices,
+		// gated by billing_enabled there); a blank label falls back to the
+		// built-in name so the catalogue always renders sensibly.
 		$tiers = [
 			'professional' => [
-				'label'    => __( 'Professional', 'owambe-connect-core' ),
+				'label'    => (string) oc_get_setting( 'tier_label_professional', '' ) ?: __( 'Professional', 'owambe-connect-core' ),
+				'price'    => (string) oc_get_setting( 'tier_price_professional', '' ),
 				'price_id' => (string) oc_get_setting( 'stripe_price_professional', '' ),
 				'rank'     => 1,
 				'features' => [
@@ -149,7 +153,8 @@ class OC_Vendor_Subscription {
 				],
 			],
 			'elite' => [
-				'label'    => __( 'Elite', 'owambe-connect-core' ),
+				'label'    => (string) oc_get_setting( 'tier_label_elite', '' ) ?: __( 'Elite', 'owambe-connect-core' ),
+				'price'    => (string) oc_get_setting( 'tier_price_elite', '' ),
 				'price_id' => (string) oc_get_setting( 'stripe_price_elite', '' ),
 				'rank'     => 2,
 				'features' => [
@@ -160,7 +165,8 @@ class OC_Vendor_Subscription {
 				],
 			],
 			'premium' => [
-				'label'    => __( 'Premium', 'owambe-connect-core' ),
+				'label'    => (string) oc_get_setting( 'tier_label_premium', '' ) ?: __( 'Premium', 'owambe-connect-core' ),
+				'price'    => (string) oc_get_setting( 'tier_price_premium', '' ),
 				'price_id' => (string) oc_get_setting( 'stripe_price_premium', '' ),
 				'rank'     => 3,
 				'features' => [

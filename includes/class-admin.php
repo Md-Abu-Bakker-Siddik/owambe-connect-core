@@ -62,6 +62,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before,
+			#adminmenu .wp-submenu li a[href*="page=oc-subscription"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before {
 				font-family: dashicons;
 				font-weight: 400;
@@ -87,6 +88,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before                       { content: "\f332"; } /* shield */
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before                           { content: "\f105"; } /* admin-page */
 			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before                        { content: "\f513"; } /* store */
+			#adminmenu .wp-submenu li a[href*="page=oc-subscription"]::before                         { content: "\f526"; } /* money-alt */
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before                       { content: "\f223"; } /* editor-spellcheck */
 
 			/* Submenu link padding — slightly tighter than core so the icon +
@@ -231,6 +233,9 @@ class OC_Admin {
 			'featured'            => [ 'success', __( 'Vendor marked as featured.', 'owambe-connect-core' ) ],
 			'unfeatured'          => [ 'success', __( 'Vendor removed from featured.', 'owambe-connect-core' ) ],
 		];
+		if ( class_exists( 'OC_Admin_Subscriptions' ) ) {
+			$map = array_merge( $map, OC_Admin_Subscriptions::notice_map() );
+		}
 		$key = sanitize_key( $_GET['oc_admin_msg'] );
 		if ( isset( $map[ $key ] ) ) {
 			printf( '<div class="notice notice-%s is-dismissible"><p>%s</p></div>', esc_attr( $map[ $key ][0] ), esc_html( $map[ $key ][1] ) );
@@ -245,6 +250,7 @@ class OC_Admin {
 				$new['oc_logo']     = __( 'Logo',     'owambe-connect-core' );
 				$new['oc_location'] = __( 'Location', 'owambe-connect-core' );
 				$new['oc_status']   = __( 'Status',   'owambe-connect-core' );
+				$new['oc_sub']      = __( 'Subscription', 'owambe-connect-core' );
 			}
 		}
 		return $new;
@@ -261,6 +267,10 @@ class OC_Admin {
 			$colors = [ OC_STATUS_PENDING => '#b8860b', OC_STATUS_APPROVED => '#1e7e3c', OC_STATUS_REJECTED => '#b32d2e' ];
 			$color  = $colors[ $status ] ?? '#555';
 			printf( '<strong style="color:%s">%s</strong>', esc_attr( $color ), esc_html( oc_status_label( $status ) ) );
+		} elseif ( 'oc_sub' === $col ) {
+			if ( class_exists( 'OC_Admin_Subscriptions' ) ) {
+				echo OC_Admin_Subscriptions::pill( $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput -- pill escapes internally.
+			}
 		}
 	}
 

@@ -342,6 +342,9 @@ class OC_Admin_Vendors_List {
 							<?php if ( $is_founding ) : ?>
 								<span class="oc-vl-vendor__founding" title="<?php esc_attr_e( 'Founding vendor', 'owambe-connect-core' ); ?>"><?php esc_html_e( 'Founding', 'owambe-connect-core' ); ?></span>
 							<?php endif; ?>
+							<?php if ( class_exists( 'OC_Admin_Subscriptions' ) ) : ?>
+								<?php echo OC_Admin_Subscriptions::pill( $post->ID ); // phpcs:ignore WordPress.Security.EscapeOutput -- pill escapes internally. ?>
+							<?php endif; ?>
 						</div>
 						<?php if ( $bio ) : ?>
 							<p class="oc-vl-vendor__bio"><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $bio ), 14 ) ); ?></p>
@@ -475,6 +478,12 @@ class OC_Admin_Vendors_List {
 			'featured'      => [ 'success', __( 'Vendor marked as featured.', 'owambe-connect-core' ) ],
 			'unfeatured'    => [ 'success', __( 'Vendor removed from featured.', 'owambe-connect-core' ) ],
 		];
+		if ( class_exists( 'OC_Admin_Subscriptions' ) ) {
+			// This UI's notice styles only know success|warning — map error onto warning.
+			foreach ( OC_Admin_Subscriptions::notice_map() as $k => $entry ) {
+				$map[ $k ] = [ 'error' === $entry[0] ? 'warning' : $entry[0], $entry[1] ];
+			}
+		}
 		$key = sanitize_key( $_GET['oc_admin_msg'] );
 		if ( ! isset( $map[ $key ] ) ) return;
 		[ $kind, $text ] = $map[ $key ];

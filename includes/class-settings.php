@@ -56,6 +56,17 @@ class OC_Settings {
 			'stripe_price_premium'      => '',
 			'billing_enabled'           => 0,
 
+			// Subscription tier definitions — display label + price per tier
+			// (e.g. "£12/month"). Presentation only: Stripe Price IDs above
+			// control actual billing. Blank label falls back to the built-in
+			// tier name in OC_Vendor_Subscription::tiers().
+			'tier_label_professional'   => '',
+			'tier_price_professional'   => '',
+			'tier_label_elite'          => '',
+			'tier_price_elite'          => '',
+			'tier_label_premium'        => '',
+			'tier_price_premium'        => '',
+
 			// Gift registry — global master toggles for Part A (external
 			// registries) and Part B (Owambe registry).
 			'registry_part_a_enabled'   => 0,
@@ -184,6 +195,16 @@ class OC_Settings {
 		$out['stripe_price_elite']        = isset( $input['stripe_price_elite'] )        ? sanitize_text_field( $input['stripe_price_elite'] )        : '';
 		$out['stripe_price_premium']      = isset( $input['stripe_price_premium'] )      ? sanitize_text_field( $input['stripe_price_premium'] )      : '';
 		$out['billing_enabled']           = ! empty( $input['billing_enabled'] ) ? 1 : 0;
+
+		// Tier definitions render only while billing is enabled — preserve the
+		// stored values when the fields are absent from a submission so turning
+		// billing off (or a partial save) never wipes them.
+		foreach ( [ 'professional', 'elite', 'premium' ] as $tier_key ) {
+			foreach ( [ 'label', 'price' ] as $part ) {
+				$k = "tier_{$part}_{$tier_key}";
+				$out[ $k ] = isset( $input[ $k ] ) ? sanitize_text_field( $input[ $k ] ) : (string) ( $out[ $k ] ?? '' );
+			}
+		}
 		// Registry master toggles are edited on Vendors → Approved Retailers, not
 		// here — so only overwrite them when the field is actually submitted;
 		// otherwise keep the stored value (get_all seeded $out above).
@@ -447,6 +468,29 @@ class OC_Settings {
 						<th scope="row"><?php esc_html_e( 'Billing master switch', 'owambe-connect-core' ); ?></th>
 						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[billing_enabled]" value="1" <?php checked( $s['billing_enabled'], 1 ); ?>/> <strong><?php esc_html_e( 'Enable billing (charges vendors when subscriptions launch)', 'owambe-connect-core' ); ?></strong></label>
 							<p class="description"><?php esc_html_e( 'Keep OFF — no vendor is charged and no billing UI shows anywhere while this is off. Free-period clocks run regardless.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Tier definitions & prices', 'owambe-connect-core' ); ?></th>
+						<td>
+							<?php if ( ! empty( $s['billing_enabled'] ) ) : ?>
+								<?php
+								$oc_tier_rows = [
+									'professional' => __( 'Professional', 'owambe-connect-core' ),
+									'elite'        => __( 'Elite', 'owambe-connect-core' ),
+									'premium'      => __( 'Premium', 'owambe-connect-core' ),
+								];
+								foreach ( $oc_tier_rows as $oc_tier_key => $oc_tier_default ) :
+									?>
+									<p style="display:flex;gap:8px;align-items:center;margin:0 0 8px;">
+										<input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[tier_label_<?php echo esc_attr( $oc_tier_key ); ?>]" value="<?php echo esc_attr( $s[ 'tier_label_' . $oc_tier_key ] ); ?>" placeholder="<?php echo esc_attr( $oc_tier_default ); ?>" style="width:180px;" />
+										<input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[tier_price_<?php echo esc_attr( $oc_tier_key ); ?>]" value="<?php echo esc_attr( $s[ 'tier_price_' . $oc_tier_key ] ); ?>" placeholder="<?php esc_attr_e( 'e.g. £12/month', 'owambe-connect-core' ); ?>" style="width:140px;" />
+									</p>
+								<?php endforeach; ?>
+								<p class="description"><?php esc_html_e( 'Display name + price per tier, shown in the admin subscription tools and vendor pricing UI. Presentation only — the Stripe Price IDs above control what is actually charged.', 'owambe-connect-core' ); ?></p>
+							<?php else : ?>
+								<p class="description"><?php esc_html_e( 'Enable billing above to configure tier names and display prices.', 'owambe-connect-core' ); ?></p>
+							<?php endif; ?>
+						</td>
 					</tr>
 				</tbody></table>
 
