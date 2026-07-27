@@ -215,6 +215,25 @@ $render_preview = static function ( $att_id, $field_name ) {
 .oc-eved__field input:focus,.oc-eved__field textarea:focus{outline:none;background:#fff;
 	border-color:var(--oc-b);box-shadow:0 0 0 3px rgba(110,15,44,.10);}
 
+/* Native date/time picker icons — the default WebKit indicator is a grey
+   bitmap that can't be tinted with `color`, so replace it with brand-burgundy
+   SVGs (calendar for date, clock for time) drawn to match the field iconography.
+   Firefox has no ::-webkit-calendar-picker-indicator (and shows no icon), so
+   nothing extra is needed there. */
+.oc-eved__field input[type="date"]::-webkit-calendar-picker-indicator,
+.oc-eved__field input[type="time"]::-webkit-calendar-picker-indicator{
+	width:14px;height:14px;cursor:pointer;opacity:.8;transition:opacity .15s ease;
+	background:transparent no-repeat center / 14px 14px;
+}
+.oc-eved__field input[type="date"]::-webkit-calendar-picker-indicator{
+	background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236E0F2C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+}
+.oc-eved__field input[type="time"]::-webkit-calendar-picker-indicator{
+	background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236E0F2C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 6v6l4 2'/%3E%3C/svg%3E");
+}
+.oc-eved__field input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.oc-eved__field input[type="time"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
+
 /* Event-name field sits directly in its section (outside the grid) — keep it tidy. */
 .oc-eved__section > .oc-eved__field{margin:0;}
 

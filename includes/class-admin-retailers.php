@@ -31,9 +31,9 @@ class OC_Admin_Retailers {
 		add_submenu_page(
 			'edit.php?post_type=' . OC_CPT,
 			__( 'Approved Retailers', 'owambe-connect-core' ),
-			// Menu label carries an inline dashicon (WP renders the title
-			// unescaped); the page title above stays clean for the browser tab.
-			'<span class="dashicons dashicons-store" aria-hidden="true" style="font-size:17px;vertical-align:-3px;margin-right:2px;"></span> ' . __( 'Approved Retailers', 'owambe-connect-core' ),
+			// Plain text — the icon comes from OC_Admin::submenu_icons_css(),
+			// which pairs every Vendors submenu item with a uniform dashicon.
+			__( 'Approved Retailers', 'owambe-connect-core' ),
 			'manage_options',
 			self::PAGE,
 			[ $this, 'render' ]

@@ -61,6 +61,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-settings"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before,
+			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before {
 				font-family: dashicons;
 				font-weight: 400;
@@ -85,7 +86,18 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-settings"]::before                              { content: "\f108"; } /* admin-generic gear */
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before                       { content: "\f332"; } /* shield */
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before                           { content: "\f105"; } /* admin-page */
+			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before                        { content: "\f513"; } /* store */
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before                       { content: "\f223"; } /* editor-spellcheck */
+
+			/* Submenu link padding — slightly tighter than core so the icon +
+			   label pair sits balanced inside the flyout/open submenu. Printed
+			   in admin_head after core CSS, so equal specificity wins. */
+			#adminmenu .wp-not-current-submenu li > a,
+			.folded #adminmenu .wp-has-current-submenu li > a {
+				padding-right: 14px;
+				padding-left: 14px;
+				transition: all .1s ease-in-out, outline 0s;
+			}
 		</style>
 		<?php
 	}
