@@ -55,7 +55,7 @@ require_once OC_PLUGIN_DIR . 'includes/class-tracking.php';
 require_once OC_PLUGIN_DIR . 'includes/class-stripe.php';
 require_once OC_PLUGIN_DIR . 'includes/class-vendor-subscription.php';
 require_once OC_PLUGIN_DIR . 'includes/class-vendor-verification.php';
-require_once OC_PLUGIN_DIR . 'includes/class-featured-cron.php';
+require_once OC_PLUGIN_DIR . 'includes/class-daily-maintenance.php';
 require_once OC_PLUGIN_DIR . 'includes/class-reviews.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-reviews.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-clients.php';

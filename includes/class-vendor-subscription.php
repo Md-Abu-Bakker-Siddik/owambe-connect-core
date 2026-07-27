@@ -75,6 +75,7 @@ class OC_Vendor_Subscription {
 			'active'   => __( 'Active', 'owambe-connect-core' ),
 			'past_due' => __( 'Payment due', 'owambe-connect-core' ),
 			'canceled' => __( 'Cancelled', 'owambe-connect-core' ),
+			'expired'  => __( 'Expired', 'owambe-connect-core' ),
 			''         => __( 'No active plan', 'owambe-connect-core' ),
 		];
 		$status_label = isset( $labels[ $status ] ) ? $labels[ $status ] : ucfirst( str_replace( '_', ' ', $status ) );

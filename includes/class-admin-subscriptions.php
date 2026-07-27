@@ -67,6 +67,10 @@ class OC_Admin_Subscriptions {
 		if ( 'canceled' === $status ) {
 			return [ 'key' => 'cancelled', 'label' => __( 'Cancelled', 'owambe-connect-core' ), 'end' => 0, 'color' => '#787069' ];
 		}
+		if ( 'expired' === $status ) {
+			// Set by the daily maintenance sweep when a free period lapses.
+			return [ 'key' => 'expired', 'label' => __( 'Expired', 'owambe-connect-core' ), 'end' => $until, 'color' => '#B32D2E' ];
+		}
 		if ( in_array( $status, OC_Vendor_Subscription::ACTIVE_STATUSES, true ) ) {
 			return [ 'key' => 'active', 'label' => __( 'Active', 'owambe-connect-core' ), 'end' => 0, 'color' => '#2E7D52' ];
 		}
