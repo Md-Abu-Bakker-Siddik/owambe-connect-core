@@ -32,8 +32,11 @@ class OC_Vendor_Verification {
 	const META_PAID   = '_oc_verification_paid';
 
 	/** Vendor POST meta: the verification request + its uploaded document. */
-	const META_REQUEST = '_oc_verification_request'; // '' | 'paid'
+	const META_REQUEST = '_oc_verification_request'; // '' | 'submitted' | 'paid' | 'approved' | 'rejected'
 	const META_DOC     = '_oc_verification_doc_id';  // attachment ID
+
+	/** Request states that sit in the admin review queue. */
+	const PENDING_STATES = [ 'paid', 'submitted' ];
 
 	/** The document must be an ID/certificate scan: image or PDF. */
 	const DOC_FIELD = 'oc_verification_doc';
@@ -132,6 +135,14 @@ class OC_Vendor_Verification {
 	}
 
 	// ─── Fee helpers ────────────────────────────────────────────────────────
+
+	/**
+	 * Master switch (Settings → Verification fee). ON: pay-then-review. OFF:
+	 * vendors submit their document free of charge, straight into the queue.
+	 */
+	public static function fee_enabled() {
+		return (bool) (int) oc_get_setting( 'verification_fee_enabled', 1 );
+	}
 
 	public static function fee_amount() {
 		return (int) apply_filters( 'oc_verification_fee', self::FEE_AMOUNT );
@@ -235,8 +246,8 @@ class OC_Vendor_Verification {
 		if ( ! $vendor_id ) {
 			$this->bail( __( 'No vendor profile found for your account.', 'owambe-connect-core' ) );
 		}
-		// Already verified, or a paid request is already on file — don't re-charge.
-		if ( self::is_verified( $user_id ) || self::request_paid( $vendor_id ) ) {
+		// Already verified, or a request is already in the queue — don't re-charge.
+		if ( self::is_verified( $user_id ) || self::request_pending( $vendor_id ) ) {
 			wp_safe_redirect( add_query_arg( 'oc_verify', 'already', self::return_url() ) );
 			exit;
 		}
@@ -247,6 +258,14 @@ class OC_Vendor_Verification {
 			$this->bail( $attach_id->get_error_message() );
 		}
 		update_post_meta( $vendor_id, self::META_DOC, (int) $attach_id );
+
+		// Fee switched off → no Stripe: the document goes straight into the
+		// admin review queue as a free submission.
+		if ( ! self::fee_enabled() ) {
+			self::mark_request_submitted( $vendor_id );
+			wp_safe_redirect( add_query_arg( 'oc_verify', 'submitted', self::return_url() ) );
+			exit;
+		}
 
 		$url = self::create_checkout_session( $vendor_id );
 		if ( is_wp_error( $url ) ) {
@@ -332,6 +351,12 @@ class OC_Vendor_Verification {
 		if ( ! $vendor_id || get_post_type( $vendor_id ) !== self::cpt() ) {
 			return;
 		}
+		// Never downgrade a decided request — a late-arriving webhook after the
+		// admin already approved must not push the vendor back into the queue.
+		if ( 'approved' === (string) get_post_meta( $vendor_id, self::META_REQUEST, true )
+			|| 1 === (int) get_post_meta( $vendor_id, '_oc_verified', true ) ) {
+			return;
+		}
 		update_post_meta( $vendor_id, self::META_REQUEST, 'paid' );
 
 		// Mirror a paid timestamp on the owner for auditing (no role/verified change).
@@ -367,6 +392,67 @@ class OC_Vendor_Verification {
 	/** True when a paid verification request is on file (pending review). */
 	public static function request_paid( $vendor_id ) {
 		return 'paid' === (string) get_post_meta( (int) $vendor_id, self::META_REQUEST, true );
+	}
+
+	/** True when ANY request (paid or free submission) awaits admin review. */
+	public static function request_pending( $vendor_id ) {
+		return in_array( (string) get_post_meta( (int) $vendor_id, self::META_REQUEST, true ), self::PENDING_STATES, true );
+	}
+
+	/**
+	 * Record a FREE (no-fee) verification submission — straight into the queue.
+	 * Mirror of mark_request_paid() for the fee-disabled path. Idempotent.
+	 *
+	 * @param int $vendor_id oc_vendor post id.
+	 */
+	public static function mark_request_submitted( $vendor_id ) {
+		$vendor_id = (int) $vendor_id;
+		if ( ! $vendor_id || get_post_type( $vendor_id ) !== self::cpt() ) {
+			return;
+		}
+		if ( 'approved' === (string) get_post_meta( $vendor_id, self::META_REQUEST, true )
+			|| 1 === (int) get_post_meta( $vendor_id, '_oc_verified', true ) ) {
+			return;
+		}
+		update_post_meta( $vendor_id, self::META_REQUEST, 'submitted' );
+
+		$owner = (int) get_post_field( 'post_author', $vendor_id );
+		if ( $owner ) {
+			update_user_meta( $owner, self::META_STATUS, 'submitted' );
+		}
+
+		$doc_id = (int) get_post_meta( $vendor_id, self::META_DOC, true );
+
+		/**
+		 * Fires after a vendor submits a free (no-fee) verification request.
+		 *
+		 * @param int $vendor_id
+		 * @param int $doc_id Uploaded document attachment id (0 if none).
+		 */
+		do_action( 'oc_verification_request_submitted', $vendor_id, $doc_id );
+
+		if ( function_exists( 'oc_debug_log' ) ) {
+			oc_debug_log( 'verification request submitted (no fee): vendor ' . $vendor_id . ' doc ' . $doc_id, [], true );
+		}
+	}
+
+	/** IDs of vendors currently awaiting review (paid or free submission). */
+	public static function pending_vendor_ids() {
+		return get_posts( [
+			'post_type'      => self::cpt(),
+			'post_status'    => 'any',
+			'numberposts'    => 200,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			'meta_query'     => [
+				[ 'key' => self::META_REQUEST, 'value' => self::PENDING_STATES, 'compare' => 'IN' ],
+			],
+		] );
+	}
+
+	/** @return int How many requests await review (for the menu badge). */
+	public static function pending_count() {
+		return count( self::pending_vendor_ids() );
 	}
 
 	/** @return int The user's vendor post id, or 0. */
@@ -425,6 +511,8 @@ class OC_Vendor_Verification {
 
 		if ( 'cancel' === $flag ) {
 			echo '<p class="oc-verify__msg oc-verify__msg--warn">' . esc_html__( 'Payment cancelled — you can try again any time.', 'owambe-connect-core' ) . '</p>';
+		} elseif ( 'submitted' === $flag ) {
+			echo '<p class="oc-verify__msg oc-verify__msg--ok">' . esc_html__( 'Thanks — your document was submitted for review.', 'owambe-connect-core' ) . '</p>';
 		} elseif ( 'error' === $flag ) {
 			$m = isset( $_GET['oc_verify_msg'] ) ? sanitize_text_field( wp_unslash( $_GET['oc_verify_msg'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			echo '<p class="oc-verify__msg oc-verify__msg--err">' . esc_html( $m ?: __( 'Something went wrong. Please try again.', 'owambe-connect-core' ) ) . '</p>';
@@ -434,8 +522,9 @@ class OC_Vendor_Verification {
 
 		if ( self::is_verified( $user->ID ) ) {
 			echo '<p class="oc-verify__badge">✓ ' . esc_html__( 'Verified Vendor', 'owambe-connect-core' ) . '</p>';
-		} elseif ( $vendor_id && self::request_paid( $vendor_id ) ) {
-			// Paid + document submitted, awaiting admin review.
+		} elseif ( $vendor_id && self::request_pending( $vendor_id ) ) {
+			// Document submitted (paid or free), awaiting admin review.
+			$was_paid = self::request_paid( $vendor_id );
 			?>
 			<div class="oc-verify__card oc-verify__card--pending">
 				<div class="oc-verify__card-main">
@@ -444,13 +533,21 @@ class OC_Vendor_Verification {
 					</span>
 					<div class="oc-verify__card-text">
 						<h3 class="oc-verify__title"><?php esc_html_e( 'Verification under review', 'owambe-connect-core' ); ?></h3>
-						<p class="oc-verify__sub"><?php esc_html_e( 'Payment received and your document was submitted. Our team will review it and award your ✓ Verified badge shortly.', 'owambe-connect-core' ); ?></p>
+						<p class="oc-verify__sub"><?php echo $was_paid
+							? esc_html__( 'Payment received and your document was submitted. Our team will review it and award your ✓ Verified badge shortly.', 'owambe-connect-core' )
+							: esc_html__( 'Your document was submitted. Our team will review it and award your ✓ Verified badge shortly.', 'owambe-connect-core' ); ?></p>
 					</div>
 				</div>
 			</div>
 			<?php
 		} else {
-			$configured = OC_Stripe::is_configured();
+			$fee_on     = self::fee_enabled();
+			// Stripe only matters when a fee must be charged; free submissions
+			// work regardless of payment configuration.
+			$configured = ! $fee_on || OC_Stripe::is_configured();
+			if ( $vendor_id && 'rejected' === (string) get_post_meta( $vendor_id, self::META_REQUEST, true ) ) {
+				echo '<p class="oc-verify__msg oc-verify__msg--warn">' . esc_html__( 'Your last verification request wasn\'t approved. You can submit a clearer document and try again.', 'owambe-connect-core' ) . '</p>';
+			}
 			?>
 			<div class="oc-verify__card">
 				<div class="oc-verify__card-main">
@@ -462,7 +559,9 @@ class OC_Vendor_Verification {
 					</span>
 					<div class="oc-verify__card-text">
 						<h3 class="oc-verify__title"><?php esc_html_e( 'Become a Verified Vendor', 'owambe-connect-core' ); ?></h3>
-						<p class="oc-verify__sub"><?php esc_html_e( 'Upload your ID or business document and pay a one-time fee — our team reviews it and awards the ✓ Verified badge.', 'owambe-connect-core' ); ?></p>
+						<p class="oc-verify__sub"><?php echo $fee_on
+							? esc_html__( 'Upload your ID or business document and pay a one-time fee — our team reviews it and awards the ✓ Verified badge.', 'owambe-connect-core' )
+							: esc_html__( 'Upload your ID or business document — our team reviews it and awards the ✓ Verified badge.', 'owambe-connect-core' ); ?></p>
 					</div>
 				</div>
 				<div class="oc-verify__card-action">
@@ -475,7 +574,13 @@ class OC_Vendor_Verification {
 								<input type="file" name="<?php echo esc_attr( self::DOC_FIELD ); ?>" accept="image/jpeg,image/png,image/webp,application/pdf" required />
 							</label>
 							<button type="submit" class="oc-btn oc-btn-primary oc-btn-lg">
-								<?php printf( esc_html__( 'Upload &amp; pay %s', 'owambe-connect-core' ), esc_html( self::fee_display() ) ); ?>
+								<?php
+								if ( $fee_on ) {
+									printf( esc_html__( 'Upload &amp; pay %s', 'owambe-connect-core' ), esc_html( self::fee_display() ) );
+								} else {
+									esc_html_e( 'Submit for review', 'owambe-connect-core' );
+								}
+								?>
 							</button>
 						</form>
 					<?php else : ?>
@@ -526,6 +631,7 @@ class OC_Vendor_Verification {
 			.oc-verify__badge{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(40,140,70,.10);color:#1e7a42;border:1px solid rgba(40,140,70,.25);border-radius:999px;font-weight:700;}
 			.oc-verify__msg{margin:0 0 .75rem;padding:10px 14px;border-radius:10px;font-size:14px;}
 			.oc-verify__msg--warn{background:#fdf6e3;color:#8a6d1a;border:1px solid #efe0b0;}
+			.oc-verify__msg--ok{background:#E9F5EF;color:#1F4D3A;border:1px solid #BFE0CE;}
 			.oc-verify__msg--err{background:#fdecea;color:#b32d2e;border:1px solid #f5c6c2;}
 			@media (max-width:640px){
 				.oc-verify__card{flex-direction:column;align-items:stretch;gap:16px;}

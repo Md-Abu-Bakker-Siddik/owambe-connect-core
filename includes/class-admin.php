@@ -63,6 +63,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-subscription"]::before,
+			#adminmenu .wp-submenu li a[href*="page=oc-verification"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before {
 				font-family: dashicons;
 				font-weight: 400;
@@ -89,6 +90,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before                           { content: "\f105"; } /* admin-page */
 			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before                        { content: "\f513"; } /* store */
 			#adminmenu .wp-submenu li a[href*="page=oc-subscription"]::before                         { content: "\f526"; } /* money-alt */
+			#adminmenu .wp-submenu li a[href*="page=oc-verification"]::before                         { content: "\f334"; } /* shield-alt */
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before                       { content: "\f223"; } /* editor-spellcheck */
 
 			/* Submenu link padding — slightly tighter than core so the icon +

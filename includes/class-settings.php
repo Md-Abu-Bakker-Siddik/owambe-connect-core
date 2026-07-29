@@ -67,6 +67,11 @@ class OC_Settings {
 			'tier_label_premium'        => '',
 			'tier_price_premium'        => '',
 
+			// Vendor verification — when ON (default) the one-time fee is charged
+			// via Stripe before review; when OFF vendors submit their document
+			// free of charge and go straight into the admin review queue.
+			'verification_fee_enabled'  => 1,
+
 			// Gift registry — global master toggles for Part A (external
 			// registries) and Part B (Owambe registry).
 			'registry_part_a_enabled'   => 0,
@@ -195,6 +200,10 @@ class OC_Settings {
 		$out['stripe_price_elite']        = isset( $input['stripe_price_elite'] )        ? sanitize_text_field( $input['stripe_price_elite'] )        : '';
 		$out['stripe_price_premium']      = isset( $input['stripe_price_premium'] )      ? sanitize_text_field( $input['stripe_price_premium'] )      : '';
 		$out['billing_enabled']           = ! empty( $input['billing_enabled'] ) ? 1 : 0;
+
+		$out['verification_fee_enabled']  = isset( $input['verification_fee_enabled'] )
+			? ( ! empty( $input['verification_fee_enabled'] ) ? 1 : 0 )
+			: (int) ( $out['verification_fee_enabled'] ?? $d['verification_fee_enabled'] );
 
 		// Tier definitions render only while billing is enabled — preserve the
 		// stored values when the fields are absent from a submission so turning
@@ -491,6 +500,11 @@ class OC_Settings {
 								<p class="description"><?php esc_html_e( 'Enable billing above to configure tier names and display prices.', 'owambe-connect-core' ); ?></p>
 							<?php endif; ?>
 						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Verification fee', 'owambe-connect-core' ); ?></th>
+						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[verification_fee_enabled]" value="1" <?php checked( $s['verification_fee_enabled'], 1 ); ?>/> <strong><?php esc_html_e( 'Charge the one-time verification fee (£15) before review', 'owambe-connect-core' ); ?></strong></label>
+							<p class="description"><?php esc_html_e( 'ON: vendors upload their document and pay via Stripe, then enter the review queue. OFF: vendors submit their document free of charge and go straight into the queue.', 'owambe-connect-core' ); ?></p></td>
 					</tr>
 				</tbody></table>
 
