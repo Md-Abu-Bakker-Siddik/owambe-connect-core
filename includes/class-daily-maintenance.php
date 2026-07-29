@@ -210,7 +210,11 @@ class OC_Daily_Maintenance {
 			// Approaching → send each reminder once per free window. The stamp
 			// stores the free_until it was sent for, so an extended window
 			// re-arms the reminder and a re-run never re-sends.
-			$days_left = (int) ceil( ( $until - $now ) / DAY_IN_SECONDS );
+			//
+			// floor(), not ceil(): "ends in 14 days" means 14 FULL days remain,
+			// so 14.8 days out is inside the T-14 band. ceil() would round that
+			// to 15 and skip a vendor who is already within two weeks of expiry.
+			$days_left = (int) floor( ( $until - $now ) / DAY_IN_SECONDS );
 			if ( $days_left <= self::T3 ) {
 				if ( (int) get_post_meta( $id, self::META_MAIL_T3, true ) !== $until ) {
 					$this->send_renewal_mail( $id, $until, $days_left, 'T-3' );
@@ -224,6 +228,16 @@ class OC_Daily_Maintenance {
 					$mailed++;
 				}
 			}
+		}
+
+		// Always log a summary — a manual Crontrol run should be visible in the
+		// debug log even when nothing was due, so "did it run?" is answerable.
+		if ( function_exists( 'oc_debug_log' ) ) {
+			oc_debug_log(
+				'subscription expiry sweep',
+				[ 'scanned' => count( $ids ), 'flipped' => $flipped, 'mailed' => $mailed ],
+				true
+			);
 		}
 
 		return [ 'flipped' => $flipped, 'mailed' => $mailed ];
@@ -249,12 +263,18 @@ class OC_Daily_Maintenance {
 			$end_date  = date_i18n( (string) get_option( 'date_format' ), $until );
 			$dashboard = function_exists( 'oc_page_url' ) ? oc_page_url( 'vendor-dashboard' ) : home_url( '/' );
 
-			$subject = sprintf(
-				/* translators: 1: number of days, 2: site name */
-				_n( 'Your free period ends in %1$d day — %2$s', 'Your free period ends in %1$d days — %2$s', $days_left, 'owambe-connect-core' ),
-				$days_left,
-				$site
-			);
+			if ( $days_left <= 0 ) {
+				// Final day (0 full days remain — floor()ed above).
+				/* translators: %s: site name */
+				$subject = sprintf( __( 'Your free period ends today — %s', 'owambe-connect-core' ), $site );
+			} else {
+				$subject = sprintf(
+					/* translators: 1: number of days, 2: site name */
+					_n( 'Your free period ends in %1$d day — %2$s', 'Your free period ends in %1$d days — %2$s', $days_left, 'owambe-connect-core' ),
+					$days_left,
+					$site
+				);
+			}
 
 			$body  = '<h2>' . esc_html__( 'Your free period is ending soon', 'owambe-connect-core' ) . '</h2>';
 			$body .= '<p>' . sprintf(
