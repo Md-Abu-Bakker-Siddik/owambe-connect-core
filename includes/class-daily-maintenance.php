@@ -40,8 +40,10 @@ class OC_Daily_Maintenance {
 	const META_TYPE     = '_oc_featured_type';
 
 	/** Renewal-reminder sent-stamps (value = the free_until they were sent for). */
-	const META_MAIL_T14 = '_oc_sub_mail_t14';
-	const META_MAIL_T3  = '_oc_sub_mail_t3';
+	const META_MAIL_T14 = '_oc_mail_t14';
+	const META_MAIL_T3  = '_oc_mail_t3';
+	const LEGACY_META_MAIL_T14 = '_oc_sub_mail_t14';
+	const LEGACY_META_MAIL_T3  = '_oc_sub_mail_t3';
 
 	/** Reminder thresholds, in days before the free period ends. */
 	const T14 = 14;
@@ -88,8 +90,16 @@ class OC_Daily_Maintenance {
 
 	/** Cron callback: run every daily job. */
 	public function run() {
-		$this->expire_featured();
-		$this->subscription_expiry();
+		$featured = $this->expire_featured();
+		$subscription = $this->subscription_expiry();
+
+		$this->log( 'daily maintenance summary', [
+			'featured_expired'     => $featured,
+			'subscriptions_seen'   => $subscription['scanned'],
+			'subscriptions_expired' => $subscription['flipped'],
+			'reminders_attempted'  => $subscription['attempted'],
+			'reminders_sent'       => $subscription['mailed'],
+		] );
 	}
 
 	// ─── Job 1 · Featured expiry ────────────────────────────────────────────
@@ -144,11 +154,7 @@ class OC_Daily_Maintenance {
 			$expired++;
 		}
 
-		if ( $expired && function_exists( 'oc_debug_log' ) ) {
-			// $force: cron runs unauthenticated, so the admin+debug gate would
-			// otherwise suppress this.
-			oc_debug_log( 'featured expiry sweep removed ' . $expired . ' listing(s)', [], true );
-		}
+		$this->log( 'featured expiry sweep', [ 'scanned' => count( $ids ), 'expired' => $expired ] );
 
 		return $expired;
 	}
@@ -159,7 +165,11 @@ class OC_Daily_Maintenance {
 	 * Sweep vendors on a free period: send the T-14/T-3 renewal reminders and
 	 * flip lapsed windows to 'expired'.
 	 *
-	 * @return array{flipped:int,mailed:int}
+	 * For local testing, define OC_DAILY_MAINTENANCE_RESET_MAIL_STAMPS as true
+	 * or return true from oc_daily_maintenance_reset_mail_stamps. That clears
+	 * all reminder stamps before the sweep; normal runs remain idempotent.
+	 *
+	 * @return array{scanned:int,flipped:int,attempted:int,mailed:int}
 	 */
 	public function subscription_expiry() {
 		$now = time();
@@ -177,10 +187,16 @@ class OC_Daily_Maintenance {
 			],
 		] );
 
-		$flipped = 0;
-		$mailed  = 0;
+		$flipped     = 0;
+		$attempted   = 0;
+		$mailed      = 0;
+		$reset_stamps = $this->should_reset_mail_stamps();
 
 		foreach ( $ids as $id ) {
+			if ( $reset_stamps ) {
+				self::reset_mail_stamps( $id );
+			}
+
 			$until = (int) get_post_meta( $id, OC_Vendor_Subscription::META_FREE_UNTIL, true );
 			if ( $until <= 0 ) {
 				continue;
@@ -200,9 +216,7 @@ class OC_Daily_Maintenance {
 				do_action( 'oc_vendor_subscription_expired', $id, $until );
 				do_action( 'oc_vendor_subscription_updated', $id, OC_Vendor_Subscription::get_vendor_subscription( $id ) );
 
-				if ( function_exists( 'oc_debug_log' ) ) {
-					oc_debug_log( 'subscription expiry: vendor flipped to expired', [ 'vendor' => $id, 'free_until' => $until ], true );
-				}
+				$this->log( 'subscription expiry: vendor flipped to expired', [ 'vendor' => $id, 'free_until' => $until ] );
 				$flipped++;
 				continue;
 			}
@@ -217,30 +231,32 @@ class OC_Daily_Maintenance {
 			$days_left = (int) floor( ( $until - $now ) / DAY_IN_SECONDS );
 			if ( $days_left <= self::T3 ) {
 				if ( (int) get_post_meta( $id, self::META_MAIL_T3, true ) !== $until ) {
-					$this->send_renewal_mail( $id, $until, $days_left, 'T-3' );
-					update_post_meta( $id, self::META_MAIL_T3, $until );
-					$mailed++;
+					$attempted++;
+					if ( $this->send_renewal_mail( $id, $until, $days_left, 'T-3' ) ) {
+						update_post_meta( $id, self::META_MAIL_T3, $until );
+						$mailed++;
+					}
 				}
 			} elseif ( $days_left <= self::T14 ) {
 				if ( (int) get_post_meta( $id, self::META_MAIL_T14, true ) !== $until ) {
-					$this->send_renewal_mail( $id, $until, $days_left, 'T-14' );
-					update_post_meta( $id, self::META_MAIL_T14, $until );
-					$mailed++;
+					$attempted++;
+					if ( $this->send_renewal_mail( $id, $until, $days_left, 'T-14' ) ) {
+						update_post_meta( $id, self::META_MAIL_T14, $until );
+						$mailed++;
+					}
 				}
 			}
 		}
 
-		// Always log a summary — a manual Crontrol run should be visible in the
-		// debug log even when nothing was due, so "did it run?" is answerable.
-		if ( function_exists( 'oc_debug_log' ) ) {
-			oc_debug_log(
-				'subscription expiry sweep',
-				[ 'scanned' => count( $ids ), 'flipped' => $flipped, 'mailed' => $mailed ],
-				true
-			);
-		}
+		$result = [
+			'scanned'   => count( $ids ),
+			'flipped'   => $flipped,
+			'attempted' => $attempted,
+			'mailed'    => $mailed,
+		];
+		$this->log( 'subscription expiry sweep', $result + [ 'stamps_reset' => $reset_stamps ] );
 
-		return [ 'flipped' => $flipped, 'mailed' => $mailed ];
+		return $result;
 	}
 
 	/**
@@ -266,11 +282,11 @@ class OC_Daily_Maintenance {
 			if ( $days_left <= 0 ) {
 				// Final day (0 full days remain — floor()ed above).
 				/* translators: %s: site name */
-				$subject = sprintf( __( 'Your free period ends today — %s', 'owambe-connect-core' ), $site );
+				$subject = sprintf( __( 'Your free period ends today - %s', 'owambe-connect-core' ), $site );
 			} else {
 				$subject = sprintf(
 					/* translators: 1: number of days, 2: site name */
-					_n( 'Your free period ends in %1$d day — %2$s', 'Your free period ends in %1$d days — %2$s', $days_left, 'owambe-connect-core' ),
+					_n( 'Your free period ends in %1$d day - %2$s', 'Your free period ends in %1$d days - %2$s', $days_left, 'owambe-connect-core' ),
 					$days_left,
 					$site
 				);
@@ -289,15 +305,52 @@ class OC_Daily_Maintenance {
 			$sent = (bool) OC_Mail::send( $to, $subject, $body );
 		}
 
-		if ( function_exists( 'oc_debug_log' ) ) {
-			oc_debug_log(
-				'subscription renewal reminder ' . $threshold,
-				[ 'vendor' => (int) $vendor_id, 'to' => $to, 'days_left' => (int) $days_left, 'sent' => $sent ],
-				true
-			);
-		}
+		$this->log(
+			'subscription renewal reminder ' . $threshold . ' wp_mail result',
+			[ 'vendor' => (int) $vendor_id, 'to' => $to, 'days_left' => (int) $days_left, 'sent' => $sent ]
+		);
 
 		return $sent;
+	}
+
+	/**
+	 * Clear current and legacy reminder stamps for one vendor.
+	 *
+	 * Local tests may call this directly before manually running the cron hook.
+	 *
+	 * @param int $vendor_id Vendor post ID.
+	 */
+	public static function reset_mail_stamps( $vendor_id ) {
+		$vendor_id = (int) $vendor_id;
+		if ( $vendor_id <= 0 ) {
+			return;
+		}
+
+		$keys = [
+			self::META_MAIL_T14,
+			self::META_MAIL_T3,
+			self::LEGACY_META_MAIL_T14,
+			self::LEGACY_META_MAIL_T3,
+		];
+		foreach ( $keys as $key ) {
+			delete_post_meta( $vendor_id, $key );
+		}
+	}
+
+	private function should_reset_mail_stamps() {
+		$reset = defined( 'OC_DAILY_MAINTENANCE_RESET_MAIL_STAMPS' )
+			&& OC_DAILY_MAINTENANCE_RESET_MAIL_STAMPS;
+
+		return (bool) apply_filters( 'oc_daily_maintenance_reset_mail_stamps', $reset );
+	}
+
+	/**
+	 * Log cron diagnostics even though cron has no logged-in administrator.
+	 */
+	private function log( $event, array $data = [] ) {
+		if ( function_exists( 'oc_debug_log' ) ) {
+			oc_debug_log( $event, $data, true );
+		}
 	}
 
 	// ─── Helper for creating timed promotions ───────────────────────────────
