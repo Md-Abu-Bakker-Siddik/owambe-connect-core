@@ -34,6 +34,18 @@ $show_filters  = ! isset( $show_filters )  || 'yes' === $show_filters;
 			?>
 			<p class="oc-directory__count"><?php echo esc_html( $label ); ?></p>
 		</header>
+		<?php if ( $current_cat ) :
+			$featured_category = OC_Queries::featured( (int) oc_get_setting( 'featured_count', 6 ), 'category', $current_cat );
+			if ( $featured_category->have_posts() ) :
+				$term = get_term_by( 'slug', $current_cat, OC_TAX );
+		?>
+			<section class="oc-category-featured" aria-label="<?php esc_attr_e( 'Featured vendors in this category', 'owambe-connect-core' ); ?>">
+				<h2><?php printf( esc_html__( 'Featured %s vendors', 'owambe-connect-core' ), esc_html( $term ? $term->name : $current_cat ) ); ?></h2>
+				<div class="oc-carousel" data-oc-carousel><button class="oc-carousel__arrow oc-carousel__arrow--prev" type="button" data-oc-carousel-prev aria-label="<?php esc_attr_e( 'Previous vendors', 'owambe-connect-core' ); ?>">&#8249;</button><div class="oc-carousel__track">
+				<?php while ( $featured_category->have_posts() ) : $featured_category->the_post(); echo oc_get_template( 'partials/vendor-card.php', [ 'post_id' => get_the_ID() ] ); endwhile; wp_reset_postdata(); ?>
+				</div><button class="oc-carousel__arrow oc-carousel__arrow--next" type="button" data-oc-carousel-next aria-label="<?php esc_attr_e( 'Next vendors', 'owambe-connect-core' ); ?>">&#8250;</button></div>
+			</section>
+		<?php endif; endif; ?>
 
 		<?php if ( $show_filters ) :
 			// Count how many filters are active so the mobile toggle button

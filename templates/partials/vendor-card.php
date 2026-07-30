@@ -29,17 +29,19 @@ $cats       = wp_get_post_terms( $id, OC_TAX );
 $bio        = wp_trim_words( wp_strip_all_tags( get_post_meta( $id, '_oc_bio', true ) ), 18 );
 $verified   = function_exists( 'oc_verified_badge_html' ) ? oc_verified_badge_html( $id ) : '';
 $founding   = function_exists( 'oc_founding_badge_html' ) ? oc_founding_badge_html( $id ) : '';
+$featured  = (int) get_post_meta( $id, '_oc_featured', true ) === 1;
 
 /* translators: %s: vendor business name */
 $cta_label = sprintf( __( 'View %s', 'owambe-connect-core' ), $title );
 ?>
-<article class="oc-card oc-card--clickable">
+<article class="oc-card oc-card--clickable<?php echo $featured ? ' oc-card--featured' : ''; ?>">
 
 	<div class="oc-card__media">
 		<?php echo oc_image_or_placeholder( $card_image, 'oc-card', $title ); ?>
 		<?php if ( ! empty( $cats ) ) : ?>
 			<span class="oc-card__tag"><?php echo esc_html( $cats[0]->name ); ?></span>
 		<?php endif; ?>
+		<?php if ( $featured ) : ?><span class="oc-card__featured" aria-label="<?php esc_attr_e( 'Featured vendor', 'owambe-connect-core' ); ?>">★ <?php esc_html_e( 'Featured', 'owambe-connect-core' ); ?></span><?php endif; ?>
 		<?php
 		// Phase 2 — save-to-list heart. position:relative + z-index in CSS keeps
 		// it clickable above the card's stretched-link ::after overlay.

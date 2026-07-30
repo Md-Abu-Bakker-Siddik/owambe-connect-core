@@ -621,13 +621,15 @@ class OC_Admin_Vendors_List {
 				foreach ( $ids as $id ) {
 					if ( ! current_user_can( 'edit_post', $id ) ) continue;
 					update_post_meta( $id, '_oc_featured', 1 );
+					if ( class_exists( 'OC_Featured' ) ) OC_Featured::clear_request( $id );
 				}
 				$msg = 'bulk_featured'; break;
 
 			case 'unfeature':
 				foreach ( $ids as $id ) {
 					if ( ! current_user_can( 'edit_post', $id ) ) continue;
-					update_post_meta( $id, '_oc_featured', 0 );
+					if ( class_exists( 'OC_Featured' ) ) OC_Featured::unfeature( $id );
+					else update_post_meta( $id, '_oc_featured', 0 );
 				}
 				$msg = 'bulk_unfeat'; break;
 

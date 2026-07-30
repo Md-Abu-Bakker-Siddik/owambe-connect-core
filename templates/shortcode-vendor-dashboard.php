@@ -121,6 +121,7 @@ $tabs = [
 	'story'    => [ 'label' => __( 'Story & tags',     'owambe-connect-core' ), 'icon' => 'editor-quote' ],
 	'contact'  => [ 'label' => __( 'Contact channels', 'owambe-connect-core' ), 'icon' => 'phone' ],
 	'photos'   => [ 'label' => __( 'Photos & Gallery', 'owambe-connect-core' ), 'icon' => 'format-gallery' ],
+	'featured' => [ 'label' => __( 'Get Featured',      'owambe-connect-core' ), 'icon' => 'star-filled' ],
 	'account'  => [ 'label' => __( 'Account',          'owambe-connect-core' ), 'icon' => 'admin-users' ],
 ];
 
@@ -1079,6 +1080,29 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 						<?php endif; ?>
 					</section>
 				<?php endif; ?>
+
+				<!-- ============== Featured placement ============== -->
+				<section class="oc-vd__panel" data-oc-panel="featured">
+					<header class="oc-vd__panel-head"><h1><?php esc_html_e( 'Get Featured', 'owambe-connect-core' ); ?></h1><p><?php esc_html_e( 'Put your business in front of more clients on the homepage or in your category.', 'owambe-connect-core' ); ?></p></header>
+					<?php
+					// Only a validated request that also appears in the admin
+					// Featured Requests queue may lock this form.
+					$featured_request = class_exists( 'OC_Featured' ) ? OC_Featured::pending_request( $id ) : [];
+					$featured_until   = (int) get_post_meta( $id, '_oc_featured_until', true );
+					$featured_credits = class_exists( 'OC_Featured' ) ? OC_Featured::credits( $id ) : [ 'remaining' => 0 ];
+					?>
+					<?php if ( $is_featured && $featured_until > time() ) : ?><div class="oc-vd__alert oc-vd__alert--success"><?php printf( esc_html__( 'Your featured placement is live until %s.', 'owambe-connect-core' ), esc_html( wp_date( get_option( 'date_format' ), $featured_until ) ) ); ?></div><?php endif; ?>
+					<?php if ( $featured_request ) : ?><div class="oc-vd__card"><strong><?php esc_html_e( 'Request in progress', 'owambe-connect-core' ); ?></strong><p><?php esc_html_e( 'The team is reviewing your featured placement request.', 'owambe-connect-core' ); ?></p><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="<?php echo esc_attr( OC_Featured::CANCEL_ACTION ); ?>"/><?php wp_nonce_field( OC_Featured::CANCEL_ACTION ); ?><button class="oc-vd__btn" type="submit"><?php esc_html_e( 'Cancel request', 'owambe-connect-core' ); ?></button></form></div><?php else : ?>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="oc_featured_request"/><?php wp_nonce_field( 'oc_featured_request' ); ?>
+						<div class="oc-vd__card">
+							<?php if ( 'premium' === oc_vendor_plan( $id ) ) : ?><p><strong><?php printf( esc_html__( 'Premium credits remaining this year: %d of 2', 'owambe-connect-core' ), (int) $featured_credits['remaining'] ); ?></strong></p><?php endif; ?>
+							<div class="oc-vd__field"><label for="oc-featured-type"><?php esc_html_e( 'Placement', 'owambe-connect-core' ); ?></label><select class="oc-vd__featured-select" id="oc-featured-type" name="featured_type" required><option value="homepage"><?php esc_html_e( 'Homepage', 'owambe-connect-core' ); ?></option><option value="category"><?php esc_html_e( 'My category', 'owambe-connect-core' ); ?></option><option value="both"><?php esc_html_e( 'Homepage + category', 'owambe-connect-core' ); ?></option></select></div>
+							<div class="oc-vd__field"><label for="oc-featured-duration"><?php esc_html_e( 'Duration', 'owambe-connect-core' ); ?></label><select class="oc-vd__featured-select" id="oc-featured-duration" name="duration" required><?php foreach ( OC_Featured::durations() as $key => $option ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( sprintf( '%s — £%s', $option['label'], number_format_i18n( $option['price'], 2 ) ) ); ?></option><?php endforeach; ?></select></div>
+							<p class="oc-vd__hint"><?php echo (int) oc_get_setting( 'billing_enabled', 0 ) ? esc_html__( 'Premium credits are used first; otherwise you will continue to secure Stripe Checkout.', 'owambe-connect-core' ) : esc_html__( 'Billing is currently off. Your selection will be sent to the team for approval without a charge.', 'owambe-connect-core' ); ?></p>
+							<button class="oc-vd__btn oc-vd__btn--primary" type="submit" <?php disabled( OC_STATUS_APPROVED !== $status ); ?>><?php esc_html_e( 'Request featured placement', 'owambe-connect-core' ); ?></button>
+						</div>
+					</form><?php endif; ?>
+				</section>
 
 				<!-- ============== Account ============== -->
 				<section class="oc-vd__panel" data-oc-panel="account">

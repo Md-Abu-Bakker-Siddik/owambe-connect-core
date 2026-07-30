@@ -23,6 +23,14 @@ class OC_Assets {
 	}
 
 	public function enqueue_frontend() {
+		// Small feature-specific layer. The main design system remains owned by
+		// the theme, but carousel mechanics must travel with this plugin feature.
+		wp_enqueue_style(
+			'oc-featured',
+			OC_PLUGIN_URL . 'assets/css/oc-featured.css',
+			[],
+			(string) ( @filemtime( OC_PLUGIN_DIR . 'assets/css/oc-featured.css' ) ?: OC_VERSION )
+		);
 		wp_enqueue_script(
 			'oc-frontend',
 			OC_PLUGIN_URL . 'assets/js/oc-frontend.js',

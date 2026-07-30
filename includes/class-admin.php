@@ -64,6 +64,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-subscription"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-verification"]::before,
+			#adminmenu .wp-submenu li a[href*="page=oc-featured-requests"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before {
 				font-family: dashicons;
 				font-weight: 400;
@@ -91,6 +92,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="page=oc-registry-shops"]::before                        { content: "\f513"; } /* store */
 			#adminmenu .wp-submenu li a[href*="page=oc-subscription"]::before                         { content: "\f526"; } /* money-alt */
 			#adminmenu .wp-submenu li a[href*="page=oc-verification"]::before                         { content: "\f334"; } /* shield-alt */
+			#adminmenu .wp-submenu li a[href*="page=oc-featured-requests"]::before                    { content: "\f155"; } /* star-filled */
 			#adminmenu .wp-submenu li a[href*="page=oc-developer-guide"]::before                       { content: "\f223"; } /* editor-spellcheck */
 
 			/* Submenu link padding — slightly tighter than core so the icon +
@@ -151,7 +153,15 @@ class OC_Admin {
 		if ( ! current_user_can( 'edit_post', $post_id ) ) wp_die( -1 );
 
 		$current = (int) get_post_meta( $post_id, '_oc_featured', true );
-		update_post_meta( $post_id, '_oc_featured', $current ? 0 : 1 );
+		if ( $current && class_exists( 'OC_Featured' ) ) {
+			OC_Featured::unfeature( $post_id );
+		} else {
+			update_post_meta( $post_id, '_oc_featured', $current ? 0 : 1 );
+			if ( class_exists( 'OC_Featured' ) ) {
+				// A manual admin decision resolves any queued request.
+				OC_Featured::clear_request( $post_id );
+			}
+		}
 
 		wp_safe_redirect( add_query_arg( 'oc_admin_msg', $current ? 'unfeatured' : 'featured', wp_get_referer() ?: admin_url( 'edit.php?post_type=' . OC_CPT ) ) );
 		exit;
@@ -312,9 +322,10 @@ class OC_Admin {
 
 	public function render_profile_box( $post ) {
 		wp_nonce_field( 'oc_save_profile', 'oc_profile_nonce' );
+		$internal_featured = [ '_oc_featured_until', '_oc_featured_type', '_oc_featured_request', '_oc_featured_credit_used', '_oc_featured_credit_year' ];
 		echo '<table class="form-table"><tbody>';
 		foreach ( oc_vendor_fields() as $key => $field ) {
-			if ( 'image' === $field['type'] || '_oc_rejection_note' === $key ) continue;
+			if ( 'image' === $field['type'] || '_oc_rejection_note' === $key || in_array( $key, $internal_featured, true ) ) continue;
 			$value = get_post_meta( $post->ID, $key, true );
 			echo '<tr><th scope="row"><label for="' . esc_attr( $key ) . '">' . esc_html( $field['label'] ) . '</label></th><td>';
 
@@ -346,8 +357,9 @@ class OC_Admin {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
 		if ( ! current_user_can( 'edit_post', $post_id ) ) return;
 
+		$internal_featured = [ '_oc_featured_until', '_oc_featured_type', '_oc_featured_request', '_oc_featured_credit_used', '_oc_featured_credit_year' ];
 		foreach ( oc_vendor_fields() as $key => $field ) {
-			if ( 'image' === $field['type'] || '_oc_rejection_note' === $key ) continue;
+			if ( 'image' === $field['type'] || '_oc_rejection_note' === $key || in_array( $key, $internal_featured, true ) ) continue;
 			if ( ! isset( $_POST[ $key ] ) ) {
 				if ( 'bool' === $field['type'] ) update_post_meta( $post_id, $key, 0 );
 				continue;
@@ -356,6 +368,13 @@ class OC_Admin {
 			$sanitizer = $field['sanitize'];
 			$value     = is_callable( $sanitizer ) ? call_user_func( $sanitizer, $value ) : sanitize_text_field( (string) $value );
 			update_post_meta( $post_id, $key, $value );
+		}
+		if ( class_exists( 'OC_Featured' ) ) {
+			if ( empty( $_POST['_oc_featured'] ) ) {
+				OC_Featured::unfeature( $post_id );
+			} else {
+				OC_Featured::clear_request( $post_id );
+			}
 		}
 	}
 

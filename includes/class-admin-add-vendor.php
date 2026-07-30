@@ -398,8 +398,8 @@ class OC_Admin_Add_Vendor {
 								<label for="av-services"><?php esc_html_e( 'Services offered', 'owambe-connect-core' ); ?></label>
 								<textarea id="av-services" name="services" rows="3" maxlength="2000"><?php echo esc_textarea( $values['services'] ); ?></textarea>
 							</p>
-							<div class="oc-av-row-2">
-								<p>
+							<div class="oc-av-commercial-fields">
+								<div class="oc-av-field">
 									<label for="av-price"><?php esc_html_e( 'Price range', 'owambe-connect-core' ); ?></label>
 									<select id="av-price" name="price_range">
 										<option value=""><?php esc_html_e( '— Select —', 'owambe-connect-core' ); ?></option>
@@ -407,10 +407,14 @@ class OC_Admin_Add_Vendor {
 											<option value="<?php echo esc_attr( $k ); ?>" <?php selected( $values['price_range'], $k ); ?>><?php echo esc_html( $label ); ?></option>
 										<?php endforeach; ?>
 									</select>
-								</p>
-								<p>
-									<label><input type="checkbox" name="featured" value="1" <?php checked( $values['featured'], 1 ); ?>/> <?php esc_html_e( 'Mark as featured', 'owambe-connect-core' ); ?></label>
-								</p>
+								</div>
+								<div class="oc-av-field oc-av-field--featured">
+									<span class="oc-av-field__label"><?php esc_html_e( 'Featured status', 'owambe-connect-core' ); ?></span>
+									<label class="oc-av-toggle">
+										<input type="checkbox" name="featured" value="1" <?php checked( $values['featured'], 1 ); ?>/>
+										<span><?php esc_html_e( 'Mark as featured', 'owambe-connect-core' ); ?></span>
+									</label>
+								</div>
 							</div>
 						</div>
 
@@ -770,6 +774,14 @@ class OC_Admin_Add_Vendor {
 			.oc-av-row { display:flex; flex-direction:column; gap:6px; margin:0 0 14px; }
 			.oc-av-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 			@media (max-width: 700px) { .oc-av-row-2 { grid-template-columns:1fr; } }
+			.oc-av-commercial-fields { display:flex; align-items:flex-end; gap:18px; margin:0 0 14px; }
+			.oc-av-commercial-fields .oc-av-field { display:flex; flex:1 1 0; flex-direction:column; gap:6px; min-width:0; }
+			.oc-av-commercial-fields .oc-av-field__label { font-weight:600; font-size:13px; }
+			.oc-av-commercial-fields .oc-av-toggle { box-sizing:border-box; min-height:40px; display:flex; align-items:center; gap:8px; margin:0; padding:8px 11px; border:1px solid #ccd0d4; border-radius:4px; background:#f6f7f7; color:#1d2327; font-weight:400; cursor:pointer; }
+			.oc-av-commercial-fields .oc-av-toggle:hover { border-color:#8c8f94; background:#fff; }
+			.oc-av-commercial-fields .oc-av-toggle:focus-within { border-color:#2271b1; box-shadow:0 0 0 1px #2271b1; }
+			.oc-av-commercial-fields .oc-av-toggle input[type="checkbox"] { flex:0 0 auto; width:1rem; height:1rem; margin:0; }
+			@media (max-width:700px) { .oc-av-commercial-fields { align-items:stretch; flex-direction:column; gap:14px; } .oc-av-commercial-fields .oc-av-field { width:100%; } }
 			.oc-av-form input[type="text"], .oc-av-form input[type="email"], .oc-av-form input[type="tel"], .oc-av-form input[type="url"], .oc-av-form input[type="password"], .oc-av-form select, .oc-av-form textarea { width:100%; padding:9px 11px; border:1px solid #ccd0d4; border-radius:4px; font-size:14px; }
 			.oc-av-form label { font-weight:600; font-size:13px; }
 			.oc-av-checks { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
@@ -1040,6 +1052,14 @@ class OC_Admin_Add_Vendor {
 		];
 		foreach ( $pairs as $k => $v ) {
 			update_post_meta( $post_id, $k, $v );
+		}
+		if ( class_exists( 'OC_Featured' ) ) {
+			if ( empty( $_POST['featured'] ) ) {
+				OC_Featured::unfeature( $post_id );
+			} else {
+				// Manually marking the vendor featured resolves any old request.
+				OC_Featured::clear_request( $post_id );
+			}
 		}
 
 		wp_set_object_terms( $post_id, $category_ids, OC_TAX );

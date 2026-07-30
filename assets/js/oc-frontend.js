@@ -120,6 +120,15 @@
 
 		initProfileNav();
 		initSmoothAnchors();
+		document.querySelectorAll('[data-oc-carousel]').forEach(function (carousel) {
+			var track = carousel.querySelector('.oc-carousel__track');
+			if (!track) return;
+			var move = function (dir) { track.scrollBy({ left: dir * Math.max(280, track.clientWidth * .8), behavior: 'smooth' }); };
+			var prev = carousel.querySelector('[data-oc-carousel-prev]');
+			var next = carousel.querySelector('[data-oc-carousel-next]');
+			if (prev) prev.addEventListener('click', function () { move(-1); });
+			if (next) next.addEventListener('click', function () { move(1); });
+		});
 	}
 
 	/* ── Global post-submit toast renderer (moved from the FAB template) ──

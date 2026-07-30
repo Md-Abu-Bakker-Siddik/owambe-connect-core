@@ -133,19 +133,32 @@ class OC_Queries {
 		return $where;
 	}
 
-	public static function featured( $count = 6 ) {
-		$q = new WP_Query( [
+	public static function featured( $count = 6, $type = 'homepage', $category = '' ) {
+		$type = sanitize_key( $type );
+		$meta = [
+			'relation' => 'AND',
+			[ 'key' => '_oc_featured', 'value' => '1' ],
+			[
+				'relation' => 'OR',
+				[ 'key' => '_oc_featured_type', 'value' => $type ],
+				[ 'key' => '_oc_featured_type', 'value' => 'both' ],
+			],
+		];
+		$args = [
 			'post_type'      => OC_CPT,
 			'post_status'    => OC_STATUS_APPROVED,
 			'posts_per_page' => (int) $count,
-			'meta_query'     => [
-				[ 'key' => '_oc_featured', 'value' => '1' ],
-			],
+			'meta_query'     => $meta,
 			'orderby'        => 'rand',
-		] );
+		];
+		if ( $category ) {
+			$args['tax_query'] = [ [ 'taxonomy' => OC_TAX, 'field' => 'slug', 'terms' => sanitize_title( $category ) ] ];
+		}
+		$q = new WP_Query( $args );
 
-		// Fall back to most recent if no featured vendors yet.
-		if ( ! $q->have_posts() ) {
+		// Preserve the homepage's legacy fallback, but category promotion strips
+		// must never label ordinary vendors as featured.
+		if ( ! $q->have_posts() && 'homepage' === $type && ! $category ) {
 			$q = new WP_Query( [
 				'post_type'      => OC_CPT,
 				'post_status'    => OC_STATUS_APPROVED,

@@ -70,6 +70,11 @@ function oc_vendor_fields() {
 		'_oc_verified'             => [ 'label' => __( 'Verified Vendor',   'owambe-connect-core' ), 'type' => 'bool',     'sanitize' => 'oc_sanitize_bool' ],
 		'_oc_founding_vendor'      => [ 'label' => __( 'Founding Vendor',   'owambe-connect-core' ), 'type' => 'bool',     'sanitize' => 'oc_sanitize_bool' ],
 		'_oc_featured'             => [ 'label' => __( 'Featured',          'owambe-connect-core' ), 'type' => 'bool',     'sanitize' => 'oc_sanitize_bool' ],
+		'_oc_featured_until'       => [ 'label' => __( 'Featured until',    'owambe-connect-core' ), 'type' => 'integer',  'sanitize' => 'absint' ],
+		'_oc_featured_type'        => [ 'label' => __( 'Featured type',     'owambe-connect-core' ), 'type' => 'string',   'sanitize' => 'sanitize_key' ],
+		'_oc_featured_request'     => [ 'label' => __( 'Featured request',  'owambe-connect-core' ), 'type' => 'array',    'sanitize' => null ],
+		'_oc_featured_credit_used' => [ 'label' => __( 'Featured credits',  'owambe-connect-core' ), 'type' => 'integer',  'sanitize' => 'absint' ],
+		'_oc_featured_credit_year' => [ 'label' => __( 'Featured year',     'owambe-connect-core' ), 'type' => 'integer',  'sanitize' => 'absint' ],
 		'_oc_rejection_note'       => [ 'label' => __( 'Rejection Reason',  'owambe-connect-core' ), 'type' => 'textarea', 'sanitize' => 'sanitize_textarea_field' ],
 	];
 }

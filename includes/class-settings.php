@@ -55,6 +55,9 @@ class OC_Settings {
 			'stripe_price_elite'        => '',
 			'stripe_price_premium'      => '',
 			'billing_enabled'           => 0,
+			'featured_price_day'        => '5.00',
+			'featured_price_week'       => '25.00',
+			'featured_price_month'      => '75.00',
 
 			// Subscription tier definitions — display label + price per tier
 			// (e.g. "£12/month"). Presentation only: Stripe Price IDs above
@@ -200,6 +203,10 @@ class OC_Settings {
 		$out['stripe_price_elite']        = isset( $input['stripe_price_elite'] )        ? sanitize_text_field( $input['stripe_price_elite'] )        : '';
 		$out['stripe_price_premium']      = isset( $input['stripe_price_premium'] )      ? sanitize_text_field( $input['stripe_price_premium'] )      : '';
 		$out['billing_enabled']           = ! empty( $input['billing_enabled'] ) ? 1 : 0;
+		foreach ( [ 'day', 'week', 'month' ] as $period ) {
+			$key         = 'featured_price_' . $period;
+			$out[ $key ] = isset( $input[ $key ] ) ? number_format( max( 0, (float) $input[ $key ] ), 2, '.', '' ) : $d[ $key ];
+		}
 
 		$out['verification_fee_enabled']  = isset( $input['verification_fee_enabled'] )
 			? ( ! empty( $input['verification_fee_enabled'] ) ? 1 : 0 )
@@ -477,6 +484,15 @@ class OC_Settings {
 						<th scope="row"><?php esc_html_e( 'Billing master switch', 'owambe-connect-core' ); ?></th>
 						<td><label><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[billing_enabled]" value="1" <?php checked( $s['billing_enabled'], 1 ); ?>/> <strong><?php esc_html_e( 'Enable billing (charges vendors when subscriptions launch)', 'owambe-connect-core' ); ?></strong></label>
 							<p class="description"><?php esc_html_e( 'Keep OFF — no vendor is charged and no billing UI shows anywhere while this is off. Free-period clocks run regardless.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Featured placement prices', 'owambe-connect-core' ); ?></th>
+						<td>
+							<?php foreach ( [ 'day' => __( '1 day', 'owambe-connect-core' ), 'week' => __( '1 week', 'owambe-connect-core' ), 'month' => __( '1 month', 'owambe-connect-core' ) ] as $period => $label ) : ?>
+								<label style="display:inline-block;margin-right:16px;"><?php echo esc_html( $label ); ?><br><span>£</span> <input type="number" min="0" step="0.01" name="<?php echo esc_attr( self::OPTION ); ?>[featured_price_<?php echo esc_attr( $period ); ?>]" value="<?php echo esc_attr( $s[ 'featured_price_' . $period ] ); ?>" style="width:100px"></label>
+							<?php endforeach; ?>
+							<p class="description"><?php esc_html_e( 'One-off Stripe Checkout prices. These durations and prices also appear in the vendor Featured tab.', 'owambe-connect-core' ); ?></p>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Tier definitions & prices', 'owambe-connect-core' ); ?></th>

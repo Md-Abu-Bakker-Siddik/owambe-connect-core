@@ -47,6 +47,7 @@ class OC_Plugin {
 		( new OC_Stripe() )->register();
 		( new OC_Vendor_Subscription() )->register();
 		( new OC_Vendor_Verification() )->register();
+		( new OC_Featured() )->register();
 		( new OC_Daily_Maintenance() )->register();
 		( new OC_Reviews() )->register();
 		( new OC_Business_Card() )->register();
