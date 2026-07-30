@@ -104,7 +104,7 @@ class OC_Admin_Vendors_List {
 			'trash'            => [ __( 'Trash',         'owambe-connect-core' ), $kpis['trash']    ],
 		];
 		?>
-		<div class="wrap oc-vl">
+		<div class="wrap oc-vl oc-vendor-admin-wrap">
 			<header class="oc-vl-head">
 				<div>
 					<h1><?php esc_html_e( 'Vendors', 'owambe-connect-core' ); ?></h1>
@@ -820,6 +820,7 @@ class OC_Admin_Vendors_List {
 			.oc-vl-vendor__info { min-width:0; flex:1; }
 			.oc-vl-vendor__name { display:block; color:#6E0F2C; text-decoration:none; font-weight:600; font-size:14px; line-height:1.3; }
 			.oc-vl-vendor__name:hover { color:#4A0A1E; text-decoration:underline; }
+			.oc-vendor-admin-wrap .oc-vl-vendor__pills { margin-top:4px; }
 			.oc-vl-vendor__bio { margin:3px 0 0; font-size:12px; color:#6B6361; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 			.oc-vl-loc { display:inline-flex; align-items:center; gap:4px; color:#1F1B1A; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
