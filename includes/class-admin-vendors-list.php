@@ -836,6 +836,9 @@ class OC_Admin_Vendors_List {
 			.oc-vl-cmp small { font-size:10px; font-weight:700; }
 
 			.oc-vl-tag { display:inline-block; background:#FAF7F2; border:1px solid #E4DDD2; color:#6E0F2C; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:500; white-space:nowrap; }
+			@media (min-width:1281px) {
+				.oc-vendor-admin-wrap .oc-vl-row:not(.oc-vl-row--head) .oc-vl-col--cats { transform:translate(-30px,-12px); }
+			}
 
 			.oc-vl-col--date { color:#6B6361; font-size:12px; white-space:nowrap; }
 			.oc-vl-col--actions { display:flex; gap:4px; justify-content:flex-end; }
