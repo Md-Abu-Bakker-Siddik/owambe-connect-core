@@ -294,7 +294,7 @@ class OC_Admin_Add_Vendor {
 								<span class="oc-av-chip-actions">
 									<button type="button" class="button button-small" data-oc-areas-action="select"><?php esc_html_e( 'Select all cities', 'owambe-connect-core' ); ?></button>
 									<button type="button" class="button button-small" data-oc-areas-action="clear"><?php esc_html_e( 'Clear', 'owambe-connect-core' ); ?></button>
-									<label style="font-size:12px;color:#6B6361;margin-left:6px;"><input type="checkbox" data-oc-areas-showall/> <?php esc_html_e( 'Show all cities (ignore region filter)', 'owambe-connect-core' ); ?></label>
+									<label class="oc-av-inline-option"><input type="checkbox" data-oc-areas-showall/><span><?php esc_html_e( 'Show all cities (ignore region filter)', 'owambe-connect-core' ); ?></span></label>
 								</span>
 								<div class="oc-av-checks" data-oc-areas-wrap>
 									<?php foreach ( $cities_by_country as $country_slug => $country_cities ) : ?>
@@ -460,7 +460,7 @@ class OC_Admin_Add_Vendor {
 									?>
 								</small>
 							</h2>
-							<p style="color:#6B6361;font-size:13px;margin:-4px 0 12px;"><?php esc_html_e( 'Tick everything that describes the vendor. Groups auto-expand when a tag is already selected.', 'owambe-connect-core' ); ?></p>
+							<p class="oc-av-card-intro"><?php esc_html_e( 'Tick everything that describes the vendor. Groups auto-expand when a tag is already selected.', 'owambe-connect-core' ); ?></p>
 							<div class="oc-av-tag-groups">
 								<?php foreach ( $tag_groups as $group_label => $tag_list ) :
 									$group_selected = array_intersect( $tag_list, $values['vendor_tags'] );
@@ -735,28 +735,27 @@ class OC_Admin_Add_Vendor {
 								</div>
 							</div>
 							<?php if ( $is_edit && $values['vendor_number'] ) : ?>
-								<hr style="border:0;border-top:1px dashed #E4DDD2;margin:14px 0;">
-								<p style="margin:0;">
-									<small style="color:#6B6361;font-size:11px;text-transform:uppercase;letter-spacing:.08em;"><?php esc_html_e( 'Vendor number', 'owambe-connect-core' ); ?></small><br>
-									<code style="background:#FAF7F2;border:1px solid #E4DDD2;padding:4px 10px;border-radius:4px;font-size:14px;letter-spacing:.06em;color:#6E0F2C;"><?php echo esc_html( $values['vendor_number'] ); ?></code>
-								</p>
+								<div class="oc-av-vendor-number">
+									<small><?php esc_html_e( 'Vendor number', 'owambe-connect-core' ); ?></small>
+									<code><?php echo esc_html( $values['vendor_number'] ); ?></code>
+								</div>
 							<?php endif; ?>
 						</div>
 
 						<?php if ( ! $is_edit ) : ?>
 							<div class="oc-av-card">
 								<h2><?php esc_html_e( 'Vendor account (optional)', 'owambe-connect-core' ); ?></h2>
-								<p style="color:#666;font-size:13px;margin:0 0 10px"><?php esc_html_e( 'Create a login so the vendor can manage their own listing from the frontend dashboard. Otherwise leave blank.', 'owambe-connect-core' ); ?></p>
-								<p>
+								<p class="oc-av-account-intro"><?php esc_html_e( 'Create a login so the vendor can manage their own listing from the frontend dashboard. Otherwise leave blank.', 'owambe-connect-core' ); ?></p>
+								<p class="oc-av-account-field">
 									<label for="av-email"><?php esc_html_e( 'Vendor email (login)', 'owambe-connect-core' ); ?></label>
 									<input id="av-email" type="email" name="vendor_email" class="widefat"/>
 								</p>
-								<p>
+								<p class="oc-av-account-field">
 									<label for="av-pw"><?php esc_html_e( 'Temporary password', 'owambe-connect-core' ); ?></label>
 									<input id="av-pw" type="text" name="vendor_password" class="widefat" placeholder="<?php esc_attr_e( 'min 8 chars, leave blank to auto-generate', 'owambe-connect-core' ); ?>"/>
 								</p>
-								<p>
-									<label><input type="checkbox" name="email_credentials" value="1" checked/> <?php esc_html_e( 'Email credentials to vendor', 'owambe-connect-core' ); ?></label>
+								<p class="oc-av-account-field oc-av-account-field--check">
+									<label class="oc-av-option"><input type="checkbox" name="email_credentials" value="1" checked/><span><?php esc_html_e( 'Email credentials to vendor', 'owambe-connect-core' ); ?></span></label>
 								</p>
 							</div>
 						<?php else :
@@ -765,10 +764,10 @@ class OC_Admin_Add_Vendor {
 							<div class="oc-av-card">
 								<h2><?php esc_html_e( 'Vendor account', 'owambe-connect-core' ); ?></h2>
 								<?php if ( $author ) : ?>
-									<p style="margin:0 0 12px;font-size:13px;color:#555">
+									<p class="oc-av-account-name">
 										<strong><?php echo esc_html( $author->display_name ); ?></strong>
 									</p>
-									<p class="oc-av-row" style="margin-bottom:6px">
+									<p class="oc-av-account-field">
 										<label for="av-login-email"><?php esc_html_e( 'Login email', 'owambe-connect-core' ); ?></label>
 										<span class="oc-av-locked" data-oc-email-lock>
 											<input id="av-login-email" type="email" name="vendor_login_email"
@@ -778,10 +777,10 @@ class OC_Admin_Add_Vendor {
 											<button type="button" class="button button-small" data-oc-email-edit><?php esc_html_e( 'Edit', 'owambe-connect-core' ); ?></button>
 										</span>
 									</p>
-									<p data-oc-email-warning hidden style="color:#a02e2a;font-size:12px;margin:0 0 6px">
+									<p class="oc-av-account-warning" data-oc-email-warning hidden>
 										<?php esc_html_e( 'Changing the login email changes how this vendor signs in. Double-check it is spelled correctly.', 'owambe-connect-core' ); ?>
 									</p>
-									<small style="color:#6B6361;font-size:12px;display:block"><?php esc_html_e( 'Locked to prevent accidental edits. Click "Edit" to fix a vendor who mistyped their email at signup.', 'owambe-connect-core' ); ?></small>
+									<small class="oc-av-account-help"><?php esc_html_e( 'Locked to prevent accidental edits. Click "Edit" to fix a vendor who mistyped their email at signup.', 'owambe-connect-core' ); ?></small>
 									<script>
 									(function () {
 										var wrap = document.querySelector('[data-oc-email-lock]');
@@ -824,11 +823,12 @@ class OC_Admin_Add_Vendor {
 			</form>
 		</div>
 		<style>
+		@scope (.oc-add-vendor) {
 			.oc-add-vendor h1 { color:#6E0F2C; }
 			.oc-av-grid { display:grid; grid-template-columns:1fr; gap:18px; max-width:1200px; }
 			@media (min-width: 960px) { .oc-av-grid { grid-template-columns:1fr 320px; } }
 			.oc-av-card { background:#fff; border:1px solid #e4ddd2; border-radius:8px; padding:20px 22px; margin-bottom:14px; }
-			.oc-av-card h2 { font-family:Georgia, serif; color:#6E0F2C; font-size:1.05rem; margin:0 0 12px; padding-bottom:8px; border-bottom:2px solid #C9A961; }
+			.oc-av-card h2 { font-family:Georgia, serif; color:#6E0F2C; font-size:1.05rem; margin:0 0 14px; padding-bottom:8px; border-bottom:2px solid #C9A961; }
 			.oc-av-card--cta { background:#FAF7F2; }
 			.button-primary.button-hero { background:#6E0F2C; border-color:#6E0F2C; }
 			.button-primary.button-hero:hover { background:#4A0A1E; border-color:#4A0A1E; }
@@ -910,9 +910,10 @@ class OC_Admin_Add_Vendor {
 				display:inline-grid;
 				place-content:center;
 				flex:0 0 auto;
+				align-self:center;
 				width:18px;
 				height:18px;
-				margin:0;
+				margin:0!important;
 				border:1px solid #cbd5e1;
 				background-color:#fff;
 				box-shadow:0 1px 2px rgba(15,23,42,.04);
@@ -926,7 +927,13 @@ class OC_Admin_Add_Vendor {
 			.oc-av-form input[type="checkbox"] { border-radius:5px; }
 			.oc-av-form input[type="radio"] { border-radius:50%; }
 			.oc-av-form input[type="checkbox"]::before,
-			.oc-av-form input[type="radio"]::before { content:none !important; }
+			.oc-av-form input[type="checkbox"]::after,
+			.oc-av-form input[type="radio"]::before,
+			.oc-av-form input[type="radio"]::after {
+				content:none!important;
+				display:none!important;
+				margin:0!important;
+			}
 			.oc-av-form input[type="checkbox"]:hover,
 			.oc-av-form input[type="radio"]:hover { border-color:#6a1b29; }
 			.oc-av-form input[type="checkbox"]:focus-visible,
@@ -951,24 +958,82 @@ class OC_Admin_Add_Vendor {
 			.oc-av-form input[type="checkbox"]:disabled,
 			.oc-av-form input[type="radio"]:disabled { opacity:.5; cursor:not-allowed; }
 			.oc-av-form label { font-weight:600; font-size:13px; color:#334155; }
+			.oc-av-form label:has(> input[type="checkbox"]),
+			.oc-av-form label:has(> input[type="radio"]) {
+				display:inline-flex;
+				align-items:center;
+				gap:8px;
+				line-height:1.2;
+			}
+			.oc-av-form label:has(> input[type="checkbox"]) > span,
+			.oc-av-form label:has(> input[type="checkbox"]) > strong,
+			.oc-av-form label:has(> input[type="radio"]) > span,
+			.oc-av-form label:has(> input[type="radio"]) > strong { line-height:1.2; }
+			.oc-av-form label.oc-av-gallery__item,
+			.oc-av-form .oc-av-gallery__rm { line-height:1.2; }
 			.oc-av-card h2 + .oc-av-checks,
 			.oc-av-card h2 + .oc-av-option-list,
-			.oc-av-card h2 + .oc-av-image-grid { margin-top:16px; }
-			.oc-av-checks { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-			.oc-av-checks--col { grid-template-columns:1fr; }
+			.oc-av-card h2 + .oc-av-image-grid { margin-top:0; }
+			.oc-av-checks { display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; }
+			.oc-av-checks--col { grid-template-columns:1fr; gap:10px; }
 			@media (min-width: 600px) { .oc-av-checks { grid-template-columns:repeat(3, 1fr); } .oc-av-checks--col { grid-template-columns:1fr; } }
-			.oc-av-chk { display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:4px; cursor:pointer; font-weight:400; font-size:13px; border:1px solid transparent; }
+			.oc-av-chk { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:4px; cursor:pointer; font-weight:400; font-size:13px; border:1px solid transparent; }
 			.oc-av-chk:hover,
 			.oc-av-chk:focus,
 			.oc-av-chk:focus-within { border-color:transparent; outline:0; box-shadow:none; background:#f8fafc; }
 			.oc-av-chk input:checked + span { color:#6E0F2C; font-weight:600; }
-			.oc-av-option-list { display:grid; gap:12px; margin:0; }
-			.oc-av-option { display:flex; align-items:center; gap:10px; margin:0; padding:0; border:0!important; outline:0!important; box-shadow:none!important; background:transparent; font-weight:400!important; line-height:1.35; cursor:pointer; }
-			.oc-av-option:hover,
-			.oc-av-option:focus,
-			.oc-av-option:focus-within { border:0!important; outline:0!important; box-shadow:none!important; background:transparent; }
+			.oc-av-option-list { display:grid; gap:10px; margin:0; }
+			.oc-av-form .oc-av-option { display:inline-flex!important; align-items:center!important; gap:8px!important; margin:0; padding:0; border:0!important; outline:0!important; box-shadow:none!important; background:transparent; font-weight:400!important; line-height:1.2!important; cursor:pointer; }
+			.oc-av-form .oc-av-option > input[type="checkbox"],
+			.oc-av-form .oc-av-option > input[type="radio"] { align-self:center!important; flex-shrink:0; margin:0!important; }
+			.oc-av-form .oc-av-option > span,
+			.oc-av-form .oc-av-option > strong { display:inline-flex; align-items:center; align-self:center; min-height:18px; margin:0; line-height:1.2; }
+			.oc-av-form .oc-av-option-list .oc-av-option {
+				box-sizing:border-box;
+				display:inline-flex!important;
+				align-items:center!important;
+				gap:8px!important;
+				min-height:18px;
+			}
+			.oc-av-form .oc-av-option-list .oc-av-option > input[type="checkbox"],
+			.oc-av-form .oc-av-option-list .oc-av-option > input[type="radio"] {
+				position:static!important;
+				top:auto!important;
+				align-self:center!important;
+				flex-shrink:0;
+				width:18px!important;
+				min-width:18px!important;
+				height:18px!important;
+				min-height:18px!important;
+				margin:0!important;
+				padding:0!important;
+				vertical-align:middle!important;
+				transform:none!important;
+			}
+			.oc-av-form .oc-av-option-list .oc-av-option > span,
+			.oc-av-form .oc-av-option-list .oc-av-option > strong {
+				box-sizing:border-box;
+				display:block!important;
+				position:static!important;
+				top:auto!important;
+				align-self:center!important;
+				min-height:18px;
+				margin:0!important;
+				padding:0!important;
+				line-height:18px!important;
+				transform:translateY(-1px)!important;
+			}
+			.oc-av-form .oc-av-option:hover,
+			.oc-av-form .oc-av-option:focus,
+			.oc-av-form .oc-av-option:focus-within { border:0!important; outline:0!important; box-shadow:none!important; background:transparent; }
 			.oc-av-option-row { display:grid; gap:5px; margin:0; }
-			.oc-av-option-row small { display:block; padding-left:28px; color:#64748b; font-size:12px; line-height:1.45; }
+			.oc-av-option-row small { display:block; padding-left:26px; color:#64748b; font-size:12px; line-height:1.45; }
+			.oc-av-card-intro { margin:0 0 12px; color:#6B6361; font-size:13px; line-height:1.5; }
+			.oc-av-chip-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; }
+			.oc-av-inline-option { display:inline-flex; align-items:center; gap:8px; margin:0 0 0 6px; border:0!important; outline:0!important; box-shadow:none!important; color:#6B6361!important; font-size:12px!important; font-weight:400!important; line-height:1.35; cursor:pointer; }
+			.oc-av-inline-option:hover,
+			.oc-av-inline-option:focus,
+			.oc-av-inline-option:focus-within { border:0!important; outline:0!important; box-shadow:none!important; }
 			.oc-av-gallery__grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px; margin:0 0 10px; }
 			.oc-av-gallery__item { display:flex; flex-direction:column; gap:4px; padding:6px; border:1px solid #E4DDD2; border-radius:6px; background:#FAF7F2; cursor:pointer; align-items:center; }
 			.oc-av-gallery__img { width:100%; height:90px; object-fit:cover; border-radius:4px; display:block; }
@@ -1014,9 +1079,24 @@ class OC_Admin_Add_Vendor {
 			.oc-av-locked input { flex:1; min-width:0; }
 			.oc-av-locked input[readonly] { background:#FAF7F2; color:#6B6361; cursor:not-allowed; }
 
+			/* Vendor account + badge metadata rhythm */
+			.oc-av-vendor-number { display:grid; gap:12px; margin-top:12px; padding-top:12px; border-top:1px dashed #E4DDD2; }
+			.oc-av-vendor-number small { color:#6B6361; font-size:11px; line-height:1; text-transform:uppercase; letter-spacing:.08em; }
+			.oc-av-vendor-number code { justify-self:start; padding:4px 10px; border:1px solid #E4DDD2; border-radius:4px; background:#FAF7F2; color:#6E0F2C; font-size:14px; line-height:1.4; letter-spacing:.06em; }
+			.oc-av-account-intro,
+			.oc-av-account-name,
+			.oc-av-account-field,
+			.oc-av-account-warning { margin:0 0 12px; }
+			.oc-av-account-intro { color:#64748b; font-size:13px; line-height:1.5; }
+			.oc-av-account-name { color:#475569; font-size:13px; line-height:1.4; }
+			.oc-av-account-field { display:grid; gap:8px; }
+			.oc-av-account-field--check { display:block; }
+			.oc-av-account-warning { color:#a02e2a; font-size:12px; line-height:1.45; }
+			.oc-av-account-help { display:block; margin-top:0; color:#64748b; font-size:12px; line-height:1.45; }
+
 			/* Yes / No / Unanswered row */
-			.oc-av-radio-row { display:inline-flex; flex-wrap:wrap; column-gap:18px; row-gap:12px; padding-top:16px; }
-			.oc-av-radio-row label { font-weight:400; font-size:13px; color:#1F1B1A; display:inline-flex; align-items:center; gap:10px; border:0!important; outline:0!important; box-shadow:none!important; }
+			.oc-av-radio-row { display:inline-flex; flex-wrap:wrap; column-gap:24px; row-gap:10px; padding-top:0; margin-top:12px; }
+			.oc-av-radio-row label { font-weight:400; font-size:13px; color:#1F1B1A; display:inline-flex; align-items:center; gap:8px; border:0!important; outline:0!important; box-shadow:none!important; }
 			.oc-av-radio-row label:hover,
 			.oc-av-radio-row label:focus,
 			.oc-av-radio-row label:focus-within { border:0!important; outline:0!important; box-shadow:none!important; }
@@ -1037,8 +1117,8 @@ class OC_Admin_Add_Vendor {
 			.oc-av-tag-group__count { flex:0 0 auto; min-width:38px; box-sizing:border-box; text-align:center; background:#fff; border:1px solid #E4DDD2; color:#6B6361; padding:3px 9px; border-radius:999px; font-size:11px; line-height:1.2; font-weight:700; font-variant-numeric:tabular-nums; }
 			.oc-av-tag-group:has(input:checked) { border-color:#6a1b29; background:#fff; }
 			.oc-av-tag-group:has(input:checked) .oc-av-tag-group__count { background:#6E0F2C; color:#fff; border-color:#6E0F2C; }
-			.oc-av-tag-group .oc-av-checks { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px; padding:12px 14px 14px; }
-			.oc-av-tag-group .oc-av-chk { box-sizing:border-box; min-width:0; min-height:42px; align-items:center; gap:9px; margin:0; padding:8px 10px; border:1px solid #e7e1da; border-radius:7px; background:#fff; color:#334155; line-height:1.3; transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease; }
+			.oc-av-tag-group .oc-av-checks { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px 24px; padding:12px 14px 14px; }
+			.oc-av-tag-group .oc-av-chk { box-sizing:border-box; min-width:0; min-height:42px; align-items:center; gap:8px; margin:0; padding:8px 10px; border:1px solid #e7e1da; border-radius:7px; background:#fff; color:#334155; line-height:1.3; transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease; }
 			.oc-av-tag-group .oc-av-chk:hover,
 			.oc-av-tag-group .oc-av-chk:focus,
 			.oc-av-tag-group .oc-av-chk:focus-within { border-color:#e7e1da; background:#f8fafc; outline:0; box-shadow:none; }
@@ -1046,6 +1126,7 @@ class OC_Admin_Add_Vendor {
 			.oc-av-tag-group .oc-av-chk input { align-self:center; }
 			.oc-av-tag-group .oc-av-chk span { min-width:0; overflow-wrap:normal; word-break:normal; hyphens:none; }
 			@media (max-width:600px) { .oc-av-tag-group .oc-av-checks { grid-template-columns:1fr; } }
+		}
 		</style>
 		<?php
 	}
