@@ -188,10 +188,13 @@ class OC_Page_Seeder {
 					'oc_hero_search',
 					'oc_category_grid',
 					'oc_featured_vendors',
-					'oc_stats',
-					'oc_how_it_works',
-					'oc_testimonials',
-					'oc_become_a_vendor_cta',
+					'oc_recently_added',
+					'oc_premium_collection',
+					'oc_blog_carousel',
+					[
+						'type'     => 'oc_become_a_vendor_cta',
+						'settings' => [ 'compact' => 'yes' ],
+					],
 				],
 			],
 			'vendors' => [
@@ -229,15 +232,24 @@ class OC_Page_Seeder {
 		];
 	}
 
-	private function build_elementor_data_for_page( array $widget_types ) {
+	private function build_elementor_data_for_page( array $widget_specs ) {
 		$sections = [];
-		foreach ( $widget_types as $widget_type ) {
-			$sections[] = $this->build_widget_section( $widget_type );
+		foreach ( $widget_specs as $widget_spec ) {
+			$widget_type     = is_array( $widget_spec ) ? (string) ( $widget_spec['type'] ?? '' ) : (string) $widget_spec;
+			$widget_settings = is_array( $widget_spec ) && isset( $widget_spec['settings'] ) && is_array( $widget_spec['settings'] )
+				? $widget_spec['settings']
+				: [];
+
+			if ( '' === $widget_type ) {
+				continue;
+			}
+
+			$sections[] = $this->build_widget_section( $widget_type, $widget_settings );
 		}
 		return $sections;
 	}
 
-	private function build_widget_section( $widget_type ) {
+	private function build_widget_section( $widget_type, array $widget_settings = [] ) {
 		$rand_seed = $widget_type . wp_generate_password( 8, false, false );
 		return [
 			'id'       => substr( md5( 'sect_' . $rand_seed ), 0, 7 ),
@@ -258,7 +270,7 @@ class OC_Page_Seeder {
 							'id'         => substr( md5( 'wid_' . $rand_seed ), 0, 7 ),
 							'elType'     => 'widget',
 							'widgetType' => $widget_type,
-							'settings'   => new stdClass(),
+							'settings'   => $widget_settings ? $widget_settings : new stdClass(),
 						],
 					],
 					'isInner'  => false,

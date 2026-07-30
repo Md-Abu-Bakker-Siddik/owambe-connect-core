@@ -120,8 +120,8 @@ class OC_Activator {
 			[
 				'slug'    => 'home',
 				'title'   => __( 'Home', 'owambe-connect-core' ),
-				// Browse-by-Category uses the horizontal-scroll layout per client feedback §6.6.
-				'content' => "<!-- wp:shortcode -->[oc_hero_search]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_category_grid layout=\"scroll\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_featured_vendors count=\"6\"]<!-- /wp:shortcode -->",
+				// P11 homepage order. Hero Search contains the homepage search UI.
+				'content' => "<!-- wp:shortcode -->[oc_hero_search]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_category_grid layout=\"scroll\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_featured_vendors count=\"6\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_recently_added]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_premium_collection]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_blog_carousel]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_become_a_vendor_cta compact=\"yes\"]<!-- /wp:shortcode -->",
 				'is_home' => true,
 			],
 			[
@@ -479,12 +479,13 @@ Website: <a href="https://www.owambeconnect.com">www.owambeconnect.com</a></p>
 	 */
 	private static function upgrade_seeded_pages() {
 		$migrations = [
-			// Home: bump category grid to horizontal scroll per §6.6.
+			// Home: upgrade only untouched legacy seed content to the P11 order.
 			'home' => [
 				'from' => [
 					"<!-- wp:shortcode -->[oc_hero_search]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_category_grid]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_featured_vendors count=\"6\"]<!-- /wp:shortcode -->",
+					"<!-- wp:shortcode -->[oc_hero_search]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_category_grid layout=\"scroll\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_featured_vendors count=\"6\"]<!-- /wp:shortcode -->",
 				],
-				'to'   => "<!-- wp:shortcode -->[oc_hero_search]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_category_grid layout=\"scroll\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_featured_vendors count=\"6\"]<!-- /wp:shortcode -->",
+				'to'   => "<!-- wp:shortcode -->[oc_hero_search]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_category_grid layout=\"scroll\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_featured_vendors count=\"6\"]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_recently_added]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_premium_collection]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_blog_carousel]<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->[oc_become_a_vendor_cta compact=\"yes\"]<!-- /wp:shortcode -->",
 			],
 
 			// About: swap to the shortcode that carries the client's Vision/Mission/Story copy.

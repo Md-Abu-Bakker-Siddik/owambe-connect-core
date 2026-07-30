@@ -1,4 +1,211 @@
-.oc-carousel{position:relative}.oc-carousel__track{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:4px 2px 14px}.oc-carousel__track::-webkit-scrollbar{display:none}.oc-carousel__track>*{flex:0 0 min(340px,84vw);scroll-snap-align:start}.oc-carousel__arrow{position:absolute;z-index:2;top:45%;width:42px;height:42px;border-radius:50%;border:1px solid var(--oc-border,#e7ddd0);background:#fff;color:var(--oc-burgundy,#6e0f2c);font-size:28px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.12)}.oc-carousel__arrow--prev{left:-18px}.oc-carousel__arrow--next{right:-18px}.oc-category-featured{margin:0 0 36px;padding:24px;background:#fffaf0;border:1px solid var(--oc-gold,#c9a961);border-radius:var(--oc-radius,12px)}.oc-category-featured h2{color:var(--oc-burgundy,#6e0f2c);margin-top:0}.oc-card--featured{border-color:var(--oc-gold,#c9a961)!important;box-shadow:0 5px 20px rgba(201,169,97,.2)}.oc-card__featured{position:absolute;left:12px;bottom:12px;z-index:2;background:var(--oc-gold,#c9a961);color:#241b0d;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}@media(max-width:700px){.oc-carousel__arrow{display:none}}@media(prefers-reduced-motion:reduce){.oc-carousel__track{scroll-behavior:auto}}
+.oc-carousel {
+	--oc-carousel-gap: 20px;
+	position: relative;
+	min-width: 0;
+}
+
+.oc-carousel__track {
+	display: flex;
+	gap: var(--oc-carousel-gap);
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding: 4px 2px 14px;
+	scroll-behavior: smooth;
+	scroll-padding-inline: 2px;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+	overscroll-behavior-inline: contain;
+	-webkit-overflow-scrolling: touch;
+	touch-action: pan-x pan-y pinch-zoom;
+}
+
+.oc-carousel__track::-webkit-scrollbar {
+	display: none;
+}
+
+.oc-carousel__track > * {
+	flex: 0 0 min(340px, 84vw);
+	min-width: 0;
+	scroll-snap-align: start;
+	scroll-snap-stop: always;
+}
+
+.oc-carousel__arrow {
+	position: absolute;
+	z-index: 3;
+	top: 50%;
+	width: 42px;
+	height: 42px;
+	margin: 0;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transform: translateY(-50%);
+	border: 1px solid var(--oc-border, #e7ddd0);
+	border-radius: 50%;
+	background: #fff;
+	color: var(--oc-burgundy, #6e0f2c);
+	font: inherit;
+	font-size: 28px;
+	line-height: 1;
+	cursor: pointer;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+	transition: color .2s ease, border-color .2s ease, background-color .2s ease, box-shadow .2s ease, opacity .2s ease, transform .2s ease;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.oc-carousel__arrow--prev {
+	left: -18px;
+}
+
+.oc-carousel__arrow--next {
+	right: -18px;
+}
+
+.oc-carousel__arrow:hover:not(:disabled):not(.is-disabled) {
+	transform: translateY(-50%) scale(1.05);
+	border-color: var(--oc-burgundy, #6e0f2c);
+	background: var(--oc-burgundy, #6e0f2c);
+	color: #fff;
+	box-shadow: 0 6px 18px rgba(110, 15, 44, .2);
+}
+
+.oc-carousel__arrow:focus-visible {
+	outline: 3px solid rgba(110, 15, 44, .2);
+	outline-offset: 3px;
+}
+
+.oc-carousel__arrow:disabled,
+.oc-carousel__arrow.is-disabled,
+.oc-carousel__arrow[aria-disabled="true"] {
+	opacity: .35;
+	cursor: default;
+	pointer-events: none;
+	box-shadow: none;
+}
+
+.oc-carousel__arrow[hidden],
+.oc-carousel.is-static .oc-carousel__arrow {
+	display: none !important;
+}
+
+.oc-carousel.is-static .oc-carousel__track {
+	justify-content: center;
+}
+
+.oc-carousel__dots,
+.oc-carousel > [data-oc-carousel-dots],
+[data-oc-carousel-dots-for] {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 10px;
+	margin-top: 14px;
+}
+
+.oc-carousel__dots[hidden],
+.oc-carousel > [data-oc-carousel-dots][hidden],
+[data-oc-carousel-dots-for][hidden],
+.oc-carousel.is-static .oc-carousel__dots,
+.oc-carousel.is-static > [data-oc-carousel-dots] {
+	display: none !important;
+}
+
+.oc-carousel__dot {
+	width: 8px;
+	height: 8px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: var(--oc-border, #e7ddd0);
+	cursor: pointer;
+	transition: width .2s ease, background-color .2s ease;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.oc-carousel__dot:hover,
+.oc-carousel__dot:focus-visible {
+	background: var(--oc-burgundy, #6e0f2c);
+	outline: 0;
+}
+
+.oc-carousel__dot:focus-visible {
+	box-shadow: 0 0 0 3px rgba(110, 15, 44, .16);
+}
+
+.oc-carousel__dot.is-active,
+.oc-carousel__dot[aria-current="true"] {
+	width: 22px;
+	background: var(--oc-gold, #c9a961);
+}
+
+.oc-category-featured {
+	margin: 0 0 36px;
+	padding: 24px;
+	background: #fffaf0;
+	border: 1px solid var(--oc-gold, #c9a961);
+	border-radius: var(--oc-radius, 12px);
+}
+
+.oc-category-featured h2 {
+	margin-top: 0;
+	color: var(--oc-burgundy, #6e0f2c);
+}
+
+.oc-card--featured {
+	border-color: var(--oc-gold, #c9a961) !important;
+	box-shadow: 0 5px 20px rgba(201, 169, 97, .2);
+}
+
+.oc-card__featured {
+	position: absolute;
+	z-index: 2;
+	left: 12px;
+	bottom: 12px;
+	padding: 5px 9px;
+	border-radius: 999px;
+	background: var(--oc-gold, #c9a961);
+	color: #241b0d;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+@media (max-width: 700px) {
+	.oc-carousel__track {
+		scroll-snap-type: x mandatory;
+	}
+
+	.oc-carousel__arrow {
+		display: none !important;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.oc-carousel__track {
+		scroll-behavior: auto !important;
+	}
+
+	.oc-carousel__arrow,
+	.oc-carousel__dot {
+		transition: none;
+	}
+}
+
+/* Homepage-only compact CTA. The normal Become a Vendor page keeps its
+ * full feature/steps spacing because this requires the explicit modifier. */
+.oc-bav.oc-bav--compact {
+	padding-top: clamp(36px, 4vw, 52px);
+	padding-bottom: clamp(36px, 4vw, 52px);
+}
+
+.oc-bav.oc-bav--compact .oc-bav__hero {
+	margin-bottom: 0;
+}
 
 /* Matches the /my-event/ registry select in .oc-regb__item-head exactly. */
 .oc-vd__field select.oc-vd__featured-select {

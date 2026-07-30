@@ -24,6 +24,9 @@ class OC_Shortcodes {
 		// manually somewhere.
 		add_action( 'wp_footer', [ $this, 'maybe_render_fab' ], 50 );
 		add_shortcode( 'oc_featured_vendors',     [ $this, 'featured_vendors' ] );
+		add_shortcode( 'oc_recently_added',       [ $this, 'recently_added' ] );
+		add_shortcode( 'oc_premium_collection',   [ $this, 'premium_collection' ] );
+		add_shortcode( 'oc_blog_carousel',        [ $this, 'blog_carousel' ] );
 		add_shortcode( 'oc_directory',            [ $this, 'directory' ] );
 		add_shortcode( 'oc_vendor_profile',       [ $this, 'vendor_profile' ] );
 		add_shortcode( 'oc_register_form',        [ $this, 'register_form' ] );
@@ -331,9 +334,84 @@ class OC_Shortcodes {
 			'subheading'    => '',
 			'view_all_text' => '',
 			'view_all_url'  => '',
-		], $atts );
+			'autoplay'      => 'yes',
+			'interval'      => 5000,
+		], $atts, 'oc_featured_vendors' );
+		$atts          = $this->normalize_carousel_atts( $atts );
+		$atts['count'] = max( 1, min( 24, (int) $atts['count'] ) );
 		$atts['query'] = OC_Queries::featured( (int) $atts['count'] );
 		return oc_get_template( 'shortcode-featured-vendors.php', $atts );
+	}
+
+	/**
+	 * Homepage carousel of the newest approved vendors.
+	 */
+	public function recently_added( $atts = [] ) {
+		$default = max( 1, min( 24, (int) oc_get_setting( 'recently_added_slots', 6 ) ) );
+		$atts    = shortcode_atts( [
+			'count'         => 0,
+			'heading'       => '',
+			'subheading'    => '',
+			'view_all_text' => '',
+			'view_all_url'  => '',
+			'autoplay'      => 'yes',
+			'interval'      => 5000,
+		], $atts, 'oc_recently_added' );
+
+		$atts          = $this->normalize_carousel_atts( $atts );
+		$atts['count'] = (int) $atts['count'] > 0 ? max( 1, min( 24, (int) $atts['count'] ) ) : $default;
+		$atts['query'] = OC_Queries::recently_added( $atts['count'] );
+		return oc_get_template( 'shortcode-recently-added.php', $atts );
+	}
+
+	/**
+	 * Homepage carousel of all approved vendors on a current Premium plan.
+	 */
+	public function premium_collection( $atts = [] ) {
+		$atts = shortcode_atts( [
+			'heading'       => '',
+			'subheading'    => '',
+			'view_all_text' => '',
+			'view_all_url'  => '',
+			'autoplay'      => 'yes',
+			'interval'      => 5500,
+		], $atts, 'oc_premium_collection' );
+
+		$atts          = $this->normalize_carousel_atts( $atts );
+		$atts['query'] = OC_Queries::premium_collection();
+		return oc_get_template( 'shortcode-premium-collection.php', $atts );
+	}
+
+	/**
+	 * Homepage carousel of the latest published WordPress posts.
+	 */
+	public function blog_carousel( $atts = [] ) {
+		$atts = shortcode_atts( [
+			'count'         => 6,
+			'heading'       => '',
+			'subheading'    => '',
+			'view_all_text' => '',
+			'view_all_url'  => '',
+			'autoplay'      => 'yes',
+			'interval'      => 6000,
+		], $atts, 'oc_blog_carousel' );
+
+		$atts          = $this->normalize_carousel_atts( $atts );
+		$atts['count'] = max( 1, min( 24, (int) $atts['count'] ) );
+		$atts['query'] = OC_Queries::latest_posts( $atts['count'] );
+		return oc_get_template( 'shortcode-blog-carousel.php', $atts );
+	}
+
+	/**
+	 * Normalize settings shared by every OC carousel shortcode.
+	 *
+	 * @param array $atts Shortcode attributes.
+	 * @return array
+	 */
+	private function normalize_carousel_atts( array $atts ) {
+		$atts['autoplay'] = 'no' === strtolower( (string) ( $atts['autoplay'] ?? 'yes' ) ) ? 'no' : 'yes';
+		$atts['interval'] = max( 2500, min( 15000, (int) ( $atts['interval'] ?? 5000 ) ) );
+		return $atts;
 	}
 
 	public function directory( $atts = [] ) {
@@ -538,6 +616,7 @@ class OC_Shortcodes {
 			'bg_color'        => '',
 			'show_features'   => 'yes',
 			'show_steps'      => 'yes',
+			'compact'         => 'no',
 		], $atts );
 		return oc_get_template( 'shortcode-become-a-vendor.php', $atts );
 	}

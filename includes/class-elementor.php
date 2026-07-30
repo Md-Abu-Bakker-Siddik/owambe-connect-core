@@ -30,6 +30,10 @@ class OC_Elementor {
 		require_once $dir . 'widget-hero-search.php';
 		require_once $dir . 'widget-category-grid.php';
 		require_once $dir . 'widget-featured-vendors.php';
+		require_once $dir . 'widget-home-carousel-base.php';
+		require_once $dir . 'widget-recently-added.php';
+		require_once $dir . 'widget-premium-collection.php';
+		require_once $dir . 'widget-blog-carousel.php';
 		require_once $dir . 'widget-directory.php';
 		require_once $dir . 'widget-vendor-profile.php';
 		require_once $dir . 'widget-register-form.php';
@@ -52,6 +56,9 @@ class OC_Elementor {
 		$manager->register( new OC_Widget_Hero_Search() );
 		$manager->register( new OC_Widget_Category_Grid() );
 		$manager->register( new OC_Widget_Featured_Vendors() );
+		$manager->register( new OC_Widget_Recently_Added() );
+		$manager->register( new OC_Widget_Premium_Collection() );
+		$manager->register( new OC_Widget_Blog_Carousel() );
 		$manager->register( new OC_Widget_Directory() );
 		$manager->register( new OC_Widget_Vendor_Profile() );
 		$manager->register( new OC_Widget_Register_Form() );

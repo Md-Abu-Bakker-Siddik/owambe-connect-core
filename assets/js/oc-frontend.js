@@ -120,20 +120,419 @@
 
 		initProfileNav();
 		initSmoothAnchors();
-		document.querySelectorAll('[data-oc-carousel]').forEach(function (carousel) {
-			var track = carousel.querySelector('.oc-carousel__track');
-			if (!track) return;
-			var move = function (dir) { track.scrollBy({ left: dir * Math.max(280, track.clientWidth * .8), behavior: 'smooth' }); };
-			var prev = carousel.querySelector('[data-oc-carousel-prev]');
-			var next = carousel.querySelector('[data-oc-carousel-next]');
-			if (prev) prev.addEventListener('click', function () { move(-1); });
-			if (next) next.addEventListener('click', function () { move(1); });
-		});
+		initCarousels(document);
+		bootDynamicCarousels();
 	}
 
 	/* ── Global post-submit toast renderer (moved from the FAB template) ──
+	 * The renderer remains below; shared carousel mechanics are defined first. */
+	/* Shared carousel controller.
+	 *
+	 * Markup:
+	 *   [data-oc-carousel]
+	 *     [data-oc-carousel-prev]
+	 *     .oc-carousel__track > cards
+	 *     [data-oc-carousel-next]
+	 *     [data-oc-carousel-dots] (optional)
+	 *
+	 * Configuration:
+	 *   data-oc-carousel-autoplay="yes|no" (default: yes)
+	 *   data-oc-carousel-interval="milliseconds" (default: 5500)
+	 *   data-oc-carousel-step="card|group" (default: card)
+	 *   data-oc-carousel-loop="yes|no" (default: yes)
+	 *
+	 * Touch scrolling stays native to the overflow track. JavaScript only
+	 * pauses autoplay for the touch lifecycle; it never prevents a swipe.
+	 */
+	function initCarousels(scope) {
+		var root = scope && scope.querySelectorAll ? scope : document;
+		var carousels = [];
+
+		if (root.nodeType === 1 && root.matches && root.matches('[data-oc-carousel]')) {
+			carousels.push(root);
+		}
+		Array.prototype.forEach.call(root.querySelectorAll('[data-oc-carousel]'), function (carousel) {
+			carousels.push(carousel);
+		});
+
+		carousels.forEach(function (carousel) {
+			if (carousel.__ocCarouselController) {
+				carousel.__ocCarouselController.refresh();
+				return;
+			}
+			createCarouselController(carousel);
+		});
+	}
+
+	function createCarouselController(carousel) {
+		var track = carousel.querySelector('.oc-carousel__track');
+		if (!track) return;
+
+		var prev = carousel.querySelector('[data-oc-carousel-prev]');
+		var next = carousel.querySelector('[data-oc-carousel-next]');
+		var dots = findCarouselDots(carousel);
+		var reduceQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+		var autoplayValue = String(carousel.getAttribute('data-oc-carousel-autoplay') || 'yes').toLowerCase();
+		var autoplay = [ 'no', 'false', '0', 'off' ].indexOf(autoplayValue) === -1;
+		var interval = parseInt(carousel.getAttribute('data-oc-carousel-interval'), 10);
+		var loopValue = String(carousel.getAttribute('data-oc-carousel-loop') || 'yes').toLowerCase();
+		var loop = [ 'no', 'false', '0', 'off' ].indexOf(loopValue) === -1;
+		var groupStep = 'group' === String(carousel.getAttribute('data-oc-carousel-step') || 'card').toLowerCase();
+		var state = {
+			stops: [ 0 ],
+			index: 0,
+			overflow: false,
+			hovered: false,
+			focused: false,
+			touching: false,
+			inView: true,
+			timer: 0,
+			touchTimer: 0,
+			scrollFrame: 0,
+			resizeTimer: 0
+		};
+
+		interval = isFinite(interval) ? Math.max(2500, interval) : 5500;
+		carousel.__ocCarouselController = {
+			refresh: refresh
+		};
+
+		function reducedMotion() {
+			return !!(reduceQuery && reduceQuery.matches);
+		}
+
+		function maxScroll() {
+			return Math.max(0, track.scrollWidth - track.clientWidth);
+		}
+
+		function uniqueStop(stops, value) {
+			value = Math.max(0, Math.min(maxScroll(), Math.round(value)));
+			if (!stops.length || Math.abs(stops[stops.length - 1] - value) > 2) {
+				stops.push(value);
+			}
+		}
+
+		function buildStops() {
+			var items = Array.prototype.slice.call(track.children);
+			var maximum = maxScroll();
+			var stops = [];
+
+			if (!items.length || maximum <= 2) {
+				return [ 0 ];
+			}
+
+			var firstOffset = items[0].offsetLeft;
+			if (groupStep) {
+				var cardStep = items.length > 1
+					? Math.max(1, items[1].offsetLeft - items[0].offsetLeft)
+					: Math.max(1, items[0].getBoundingClientRect().width);
+				var cardsPerGroup = Math.max(1, Math.floor((track.clientWidth + 1) / cardStep));
+				items.forEach(function (item, itemIndex) {
+					if (itemIndex % cardsPerGroup === 0) {
+						uniqueStop(stops, item.offsetLeft - firstOffset);
+					}
+				});
+			} else {
+				items.forEach(function (item) {
+					uniqueStop(stops, item.offsetLeft - firstOffset);
+				});
+			}
+
+			uniqueStop(stops, maximum);
+			return stops.length ? stops : [ 0 ];
+		}
+
+		function nearestIndex() {
+			var left = track.scrollLeft;
+			var best = 0;
+			var distance = Infinity;
+			state.stops.forEach(function (stop, index) {
+				var nextDistance = Math.abs(stop - left);
+				if (nextDistance < distance) {
+					distance = nextDistance;
+					best = index;
+				}
+			});
+			return best;
+		}
+
+		function setControlState(control, disabled, hidden) {
+			if (!control) return;
+			control.hidden = !!hidden;
+			control.classList.toggle('is-disabled', !!disabled);
+			control.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+			if ('disabled' in control) control.disabled = !!disabled;
+		}
+
+		function syncDots() {
+			if (!dots) return;
+			var dotButtons = dots.querySelectorAll('.oc-carousel__dot');
+			Array.prototype.forEach.call(dotButtons, function (dot, index) {
+				var active = index === state.index;
+				dot.classList.toggle('is-active', active);
+				if (active) {
+					dot.setAttribute('aria-current', 'true');
+				} else {
+					dot.removeAttribute('aria-current');
+				}
+			});
+		}
+
+		function sync() {
+			var maximum = maxScroll();
+			state.overflow = maximum > 2 && state.stops.length > 1;
+			state.index = nearestIndex();
+
+			var atStart = track.scrollLeft <= 2;
+			var atEnd = track.scrollLeft >= maximum - 2;
+			carousel.classList.toggle('is-static', !state.overflow);
+			carousel.classList.toggle('is-at-start', atStart);
+			carousel.classList.toggle('is-at-end', atEnd);
+
+			setControlState(prev, !state.overflow || (!loop && atStart), !state.overflow);
+			setControlState(next, !state.overflow || (!loop && atEnd), !state.overflow);
+			if (dots) dots.hidden = !state.overflow;
+			syncDots();
+			syncAutoplay();
+		}
+
+		function buildDots() {
+			if (!dots) return;
+			dots.innerHTML = '';
+			state.stops.forEach(function (stop, index) {
+				var dot = document.createElement('button');
+				dot.type = 'button';
+				dot.className = 'oc-carousel__dot';
+				dot.setAttribute('aria-label', 'Go to slide group ' + (index + 1));
+				dot.addEventListener('click', function () {
+					goTo(index);
+					restartAutoplay();
+				});
+				dots.appendChild(dot);
+			});
+		}
+
+		function refresh() {
+			window.clearTimeout(state.resizeTimer);
+			state.resizeTimer = window.setTimeout(function () {
+				state.stops = buildStops();
+				buildDots();
+				sync();
+			}, 40);
+		}
+
+		function goTo(index) {
+			if (!state.overflow || !state.stops.length) return;
+			var last = state.stops.length - 1;
+			if (loop) {
+				if (index < 0) index = last;
+				if (index > last) index = 0;
+			} else {
+				index = Math.max(0, Math.min(last, index));
+			}
+			state.index = index;
+			track.scrollTo({
+				left: state.stops[index],
+				behavior: reducedMotion() ? 'auto' : 'smooth'
+			});
+			syncDots();
+		}
+
+		function move(direction, manual) {
+			state.index = nearestIndex();
+			goTo(state.index + direction);
+			if (manual) restartAutoplay();
+		}
+
+		function canAutoplay() {
+			return autoplay &&
+				state.overflow &&
+				state.inView &&
+				!document.hidden &&
+				!state.hovered &&
+				!state.focused &&
+				!state.touching &&
+				!reducedMotion() &&
+				carousel.isConnected;
+		}
+
+		function stopAutoplay() {
+			if (state.timer) {
+				window.clearTimeout(state.timer);
+				state.timer = 0;
+			}
+		}
+
+		function syncAutoplay() {
+			if (!canAutoplay()) {
+				stopAutoplay();
+				return;
+			}
+			if (!state.timer) {
+				state.timer = window.setTimeout(function () {
+					state.timer = 0;
+					move(1, false);
+					syncAutoplay();
+				}, interval);
+			}
+		}
+
+		function restartAutoplay() {
+			stopAutoplay();
+			syncAutoplay();
+		}
+
+		if (prev) {
+			prev.addEventListener('click', function () {
+				move(-1, true);
+			});
+		}
+		if (next) {
+			next.addEventListener('click', function () {
+				move(1, true);
+			});
+		}
+
+		track.addEventListener('scroll', function () {
+			if (state.scrollFrame) return;
+			state.scrollFrame = window.requestAnimationFrame(function () {
+				state.scrollFrame = 0;
+				sync();
+			});
+		}, { passive: true });
+
+		carousel.addEventListener('mouseenter', function () {
+			state.hovered = true;
+			syncAutoplay();
+		});
+		carousel.addEventListener('mouseleave', function () {
+			state.hovered = false;
+			restartAutoplay();
+		});
+		carousel.addEventListener('focusin', function () {
+			state.focused = true;
+			syncAutoplay();
+		});
+		carousel.addEventListener('focusout', function (event) {
+			if (event.relatedTarget && carousel.contains(event.relatedTarget)) return;
+			state.focused = false;
+			restartAutoplay();
+		});
+
+		track.addEventListener('touchstart', function () {
+			window.clearTimeout(state.touchTimer);
+			state.touching = true;
+			syncAutoplay();
+		}, { passive: true });
+
+		function finishTouch() {
+			window.clearTimeout(state.touchTimer);
+			state.touchTimer = window.setTimeout(function () {
+				state.touching = false;
+				restartAutoplay();
+			}, 1400);
+		}
+		track.addEventListener('touchend', finishTouch, { passive: true });
+		track.addEventListener('touchcancel', finishTouch, { passive: true });
+
+		document.addEventListener('visibilitychange', function () {
+			syncAutoplay();
+		});
+
+		if (reduceQuery) {
+			var onMotionChange = function () {
+				syncAutoplay();
+			};
+			if (reduceQuery.addEventListener) {
+				reduceQuery.addEventListener('change', onMotionChange);
+			} else if (reduceQuery.addListener) {
+				reduceQuery.addListener(onMotionChange);
+			}
+		}
+
+		if ('IntersectionObserver' in window) {
+			var visibilityObserver = new IntersectionObserver(function (entries) {
+				entries.forEach(function (entry) {
+					state.inView = entry.isIntersecting && entry.intersectionRatio > 0;
+					syncAutoplay();
+				});
+			}, { threshold: 0.01 });
+			visibilityObserver.observe(carousel);
+		}
+
+		if ('ResizeObserver' in window) {
+			var resizeObserver = new ResizeObserver(refresh);
+			resizeObserver.observe(track);
+		} else {
+			window.addEventListener('resize', refresh, { passive: true });
+		}
+
+		state.stops = buildStops();
+		buildDots();
+		sync();
+	}
+
+	function findCarouselDots(carousel) {
+		var internal = carousel.querySelector('[data-oc-carousel-dots]');
+		if (internal) return internal;
+
+		var target = carousel.getAttribute('data-oc-carousel-dots');
+		if (target && target !== 'yes' && target !== 'true') {
+			try {
+				return document.querySelector(target);
+			} catch (error) {}
+		}
+
+		if (carousel.id) {
+			var candidates = document.querySelectorAll('[data-oc-carousel-dots-for]');
+			for (var i = 0; i < candidates.length; i++) {
+				if (candidates[i].getAttribute('data-oc-carousel-dots-for') === carousel.id) {
+					return candidates[i];
+				}
+			}
+		}
+		return null;
+	}
+
+	/* Elementor replaces widget DOM during editing. Its frontend hook handles
+	 * that path; the small observer covers other AJAX/dynamic insertions too.
+	 * createCarouselController() is property-guarded, so either path is safe. */
+	function bootDynamicCarousels() {
+		if (window.__ocDynamicCarouselsBooted) return;
+		window.__ocDynamicCarouselsBooted = true;
+
+		var hookElementor = function () {
+			if (!window.elementorFrontend || !window.elementorFrontend.hooks || window.__ocElementorCarouselHooked) return;
+			window.__ocElementorCarouselHooked = true;
+			window.elementorFrontend.hooks.addAction('frontend/element_ready/global', function (scope) {
+				initCarousels(scope && scope[0] ? scope[0] : scope);
+			});
+		};
+
+		hookElementor();
+		window.addEventListener('elementor/frontend/init', hookElementor);
+		if (window.jQuery) {
+			window.jQuery(window).on('elementor/frontend/init.ocCarousel', hookElementor);
+		}
+
+		if ('MutationObserver' in window && document.body) {
+			var observer = new MutationObserver(function (mutations) {
+				mutations.forEach(function (mutation) {
+					Array.prototype.forEach.call(mutation.addedNodes, function (node) {
+						if (node.nodeType !== 1) return;
+						if ((node.matches && node.matches('[data-oc-carousel]')) || node.querySelector('[data-oc-carousel]')) {
+							initCarousels(node);
+						}
+					});
+				});
+			});
+			observer.observe(document.body, { childList: true, subtree: true });
+		}
+	}
+
+	/* Global post-submit toast renderer (moved from the FAB template).
 	 * Reads ?oc_notice= / ?oc_error= on every public page and shows
-	 * slide-in toasts, then strips the params so refresh doesn't repeat. */
+	 * slide-in toasts, then strips the params so refresh does not repeat. */
 	function ocToast(message, type) {
 		if (!message) return;
 		var holder = document.querySelector('.oc-toast-stack');

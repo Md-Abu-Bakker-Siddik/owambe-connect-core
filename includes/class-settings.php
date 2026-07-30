@@ -20,6 +20,7 @@ class OC_Settings {
 			'notification_email'  => '',
 			'directory_per_page'  => 12,
 			'featured_count'      => 6,
+			'recently_added_slots' => 6,
 			'logo_max_mb'         => 2,
 			'banner_max_mb'       => 5,
 			'gallery_max_images'  => 6,
@@ -165,6 +166,7 @@ class OC_Settings {
 		$out['notification_email'] = isset( $input['notification_email'] ) ? sanitize_email( $input['notification_email'] ) : '';
 		$out['directory_per_page'] = isset( $input['directory_per_page'] ) ? max( 3, min( 60, (int) $input['directory_per_page'] ) ) : $d['directory_per_page'];
 		$out['featured_count']     = isset( $input['featured_count'] )     ? max( 1, min( 24, (int) $input['featured_count'] ) ) : $d['featured_count'];
+		$out['recently_added_slots'] = isset( $input['recently_added_slots'] ) ? max( 1, min( 24, (int) $input['recently_added_slots'] ) ) : $d['recently_added_slots'];
 		$out['logo_max_mb']        = isset( $input['logo_max_mb'] )        ? max( 1, min( 10, (int) $input['logo_max_mb'] ) ) : $d['logo_max_mb'];
 		$out['banner_max_mb']      = isset( $input['banner_max_mb'] )      ? max( 1, min( 20, (int) $input['banner_max_mb'] ) ) : $d['banner_max_mb'];
 		$out['gallery_max_images'] = isset( $input['gallery_max_images'] ) ? max( 0, min( 24, (int) $input['gallery_max_images'] ) ) : $d['gallery_max_images'];
@@ -304,6 +306,11 @@ class OC_Settings {
 						<th scope="row"><label for="oc-fc"><?php esc_html_e( 'Featured vendors on home', 'owambe-connect-core' ); ?></label></th>
 						<td><input id="oc-fc" type="number" min="1" max="24" name="<?php echo esc_attr( self::OPTION ); ?>[featured_count]" value="<?php echo esc_attr( $s['featured_count'] ); ?>"/>
 							<p class="description"><?php esc_html_e( 'Default number of vendors shown by [oc_featured_vendors] when no count attribute is given.', 'owambe-connect-core' ); ?></p></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="oc-recent-slots"><?php esc_html_e( 'Recently added slots', 'owambe-connect-core' ); ?></label></th>
+						<td><input id="oc-recent-slots" type="number" min="1" max="24" name="<?php echo esc_attr( self::OPTION ); ?>[recently_added_slots]" value="<?php echo esc_attr( $s['recently_added_slots'] ); ?>"/>
+							<p class="description"><?php esc_html_e( 'Maximum newest approved vendors shown by [oc_recently_added] when no count attribute is supplied.', 'owambe-connect-core' ); ?></p></td>
 					</tr>
 				</tbody></table>
 

@@ -67,11 +67,22 @@ class OC_Widget_CTA extends Widget_Base {
 			'condition' => [ 'secondary_text!' => '' ],
 		] );
 
+		$this->add_control( 'compact', [
+			'label'        => __( 'Compact Homepage Mode', 'owambe-connect-core' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'label_on'     => __( 'On', 'owambe-connect-core' ),
+			'label_off'    => __( 'Off', 'owambe-connect-core' ),
+			'return_value' => 'yes',
+			'default'      => 'no',
+			'description'  => __( 'Shows a concise CTA without the features grid or “How it works” steps.', 'owambe-connect-core' ),
+		] );
+
 		$this->add_control( 'show_features', [
 			'label'        => __( 'Show Features Grid', 'owambe-connect-core' ),
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'yes',
 			'default'      => 'yes',
+			'condition'    => [ 'compact!' => 'yes' ],
 		] );
 
 		$this->add_control( 'show_steps', [
@@ -79,6 +90,7 @@ class OC_Widget_CTA extends Widget_Base {
 			'type'         => Controls_Manager::SWITCHER,
 			'return_value' => 'yes',
 			'default'      => 'yes',
+			'condition'    => [ 'compact!' => 'yes' ],
 		] );
 
 		$this->end_controls_section();
@@ -93,7 +105,7 @@ class OC_Widget_CTA extends Widget_Base {
 			'label'     => __( 'Background Color', 'owambe-connect-core' ),
 			'type'      => Controls_Manager::COLOR,
 			'selectors' => [
-				'{{WRAPPER}} .oc-cta' => 'background-color: {{VALUE}};',
+				'{{WRAPPER}} .oc-bav' => 'background-color: {{VALUE}};',
 			],
 		] );
 
@@ -102,7 +114,7 @@ class OC_Widget_CTA extends Widget_Base {
 			'type'       => Controls_Manager::DIMENSIONS,
 			'size_units' => [ 'px', 'em', '%' ],
 			'selectors'  => [
-				'{{WRAPPER}} .oc-cta' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+				'{{WRAPPER}} .oc-bav' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 			],
 		] );
 
@@ -120,6 +132,7 @@ class OC_Widget_CTA extends Widget_Base {
 		if ( ! empty( $s['button_url']['url'] ) )   { $attr .= ' button_url="' . esc_attr( $s['button_url']['url'] ) . '"'; }
 		if ( ! empty( $s['secondary_text'] ) )      { $attr .= ' secondary_text="' . esc_attr( $s['secondary_text'] ) . '"'; }
 		if ( ! empty( $s['secondary_url']['url'] ) ) { $attr .= ' secondary_url="' . esc_attr( $s['secondary_url']['url'] ) . '"'; }
+		$attr .= ' compact="' . ( 'yes' === ( $s['compact'] ?? 'no' ) ? 'yes' : 'no' ) . '"';
 		$attr .= ' show_features="' . ( 'yes' === ( $s['show_features'] ?? 'yes' ) ? 'yes' : 'no' ) . '"';
 		$attr .= ' show_steps="' . ( 'yes' === ( $s['show_steps'] ?? 'yes' ) ? 'yes' : 'no' ) . '"';
 

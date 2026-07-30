@@ -51,6 +51,38 @@ class OC_Admin_Guide {
 				'page'     => 'home',
 			],
 			[
+				'tag'      => 'oc_recently_added',
+				'desc'     => __( 'Carousel of the newest approved vendors.', 'owambe-connect-core' ),
+				'attrs'    => [
+					[ 'count', '0', __( 'Number to show; 0 uses the Vendors settings value.', 'owambe-connect-core' ) ],
+					[ 'autoplay', 'yes', __( 'Use no to disable automatic movement.', 'owambe-connect-core' ) ],
+					[ 'interval', '5000', __( 'Autoplay interval in milliseconds.', 'owambe-connect-core' ) ],
+				],
+				'used_on'  => __( 'Home', 'owambe-connect-core' ),
+				'page'     => 'home',
+			],
+			[
+				'tag'      => 'oc_premium_collection',
+				'desc'     => __( 'Carousel of approved vendors on a currently active Premium plan.', 'owambe-connect-core' ),
+				'attrs'    => [
+					[ 'autoplay', 'yes', __( 'Use no to disable automatic movement.', 'owambe-connect-core' ) ],
+					[ 'interval', '5500', __( 'Autoplay interval in milliseconds.', 'owambe-connect-core' ) ],
+				],
+				'used_on'  => __( 'Home', 'owambe-connect-core' ),
+				'page'     => 'home',
+			],
+			[
+				'tag'      => 'oc_blog_carousel',
+				'desc'     => __( 'Carousel of the latest published WordPress posts.', 'owambe-connect-core' ),
+				'attrs'    => [
+					[ 'count', '6', __( 'Number of posts to show.', 'owambe-connect-core' ) ],
+					[ 'autoplay', 'yes', __( 'Use no to disable automatic movement.', 'owambe-connect-core' ) ],
+					[ 'interval', '6000', __( 'Autoplay interval in milliseconds.', 'owambe-connect-core' ) ],
+				],
+				'used_on'  => __( 'Home', 'owambe-connect-core' ),
+				'page'     => 'home',
+			],
+			[
 				'tag'      => 'oc_directory',
 				'desc'     => __( 'Filterable, paginated directory. Supports ?cat=, ?s=, ?location=, ?paged= URL params.', 'owambe-connect-core' ),
 				'attrs'    => [],

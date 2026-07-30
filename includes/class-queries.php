@@ -170,6 +170,98 @@ class OC_Queries {
 		return $q;
 	}
 
+	/**
+	 * Newest approved vendors for the homepage Recently Added carousel.
+	 *
+	 * @param int $count Maximum vendors to return.
+	 * @return WP_Query
+	 */
+	public static function recently_added( $count = 6 ) {
+		return new WP_Query( [
+			'post_type'              => OC_CPT,
+			'post_status'            => OC_STATUS_APPROVED,
+			'posts_per_page'         => max( 1, min( 24, (int) $count ) ),
+			'orderby'                => 'date',
+			'order'                  => 'DESC',
+			'ignore_sticky_posts'    => true,
+			'no_found_rows'          => true,
+			'update_post_term_cache' => true,
+			'update_post_meta_cache' => true,
+		] );
+	}
+
+	/**
+	 * Every approved vendor whose Premium plan currently grants paid access.
+	 *
+	 * The status branch mirrors OC_Vendor_Subscription::get_vendor_subscription():
+	 * active/trialing subscriptions qualify, as does an unexpired free period
+	 * carrying the Premium tier. Merely having stale `_oc_sub_plan=premium`
+	 * metadata is deliberately not enough.
+	 *
+	 * @return WP_Query
+	 */
+	public static function premium_collection() {
+		return new WP_Query( [
+			'post_type'              => OC_CPT,
+			'post_status'            => OC_STATUS_APPROVED,
+			'posts_per_page'         => -1,
+			'orderby'                => 'date',
+			'order'                  => 'DESC',
+			'ignore_sticky_posts'    => true,
+			'no_found_rows'          => true,
+			'update_post_term_cache' => true,
+			'update_post_meta_cache' => true,
+			'meta_query'             => [
+				'relation' => 'AND',
+				[
+					'key'     => '_oc_sub_plan',
+					'value'   => 'premium',
+					'compare' => '=',
+				],
+				[
+					'relation' => 'OR',
+					[
+						'key'     => '_oc_sub_status',
+						'value'   => [ 'active', 'trialing' ],
+						'compare' => 'IN',
+					],
+					[
+						'relation' => 'AND',
+						[
+							'key'     => '_oc_sub_status',
+							'value'   => 'free',
+							'compare' => '=',
+						],
+						[
+							'key'     => '_oc_free_until',
+							'value'   => time(),
+							'compare' => '>',
+							'type'    => 'NUMERIC',
+						],
+					],
+				],
+			],
+		] );
+	}
+
+	/**
+	 * Latest published WordPress posts for the homepage Blog carousel.
+	 *
+	 * @param int $count Maximum posts to return.
+	 * @return WP_Query
+	 */
+	public static function latest_posts( $count = 6 ) {
+		return new WP_Query( [
+			'post_type'           => 'post',
+			'post_status'         => 'publish',
+			'posts_per_page'      => max( 1, min( 24, (int) $count ) ),
+			'orderby'             => 'date',
+			'order'               => 'DESC',
+			'ignore_sticky_posts' => true,
+			'no_found_rows'       => true,
+		] );
+	}
+
 	public static function categories_with_counts() {
 		return get_terms( [
 			'taxonomy'   => OC_TAX,

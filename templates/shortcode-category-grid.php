@@ -42,15 +42,41 @@ $icons_svg = [
 	'transport'   => '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3v-5l2-6h12l3 6v5h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
 ];
 $fallback_svg = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6 6 1-4.5 4 1 6L12 16l-5.5 3 1-6L3 9l6-1 3-6z"/></svg>';
-$carousel_id = function_exists( 'wp_unique_id' ) ? wp_unique_id( 'oc-cat-' ) : 'oc-cat-' . substr( md5( (string) $heading ), 0, 8 );
+$carousel_id = function_exists( 'wp_unique_id' ) ? wp_unique_id( 'oc-category-track-' ) : 'oc-category-track-' . substr( md5( (string) $heading ), 0, 8 );
+$heading_id  = function_exists( 'wp_unique_id' ) ? wp_unique_id( 'oc-category-title-' ) : 'oc-category-title-' . substr( md5( (string) $heading ), 0, 8 );
 ?>
-<section class="oc-section oc-categories oc-categories--<?php echo esc_attr( $layout ); ?> oc-categories--<?php echo esc_attr( $card_style ); ?>">
+<section class="oc-section oc-categories oc-categories--<?php echo esc_attr( $layout ); ?> oc-categories--<?php echo esc_attr( $card_style ); ?>" aria-labelledby="<?php echo esc_attr( $heading_id ); ?>">
 	<div class="oc-container">
 		<div class="oc-section__head">
-			<h2 class="oc-section__title"><?php echo esc_html( $heading ); ?></h2>
+			<h2 id="<?php echo esc_attr( $heading_id ); ?>" class="oc-section__title"><?php echo esc_html( $heading ); ?></h2>
 			<?php if ( $subheading ) : ?><p class="oc-section__lead"><?php echo esc_html( $subheading ); ?></p><?php endif; ?>
 		</div>
-		<div id="<?php echo esc_attr( $carousel_id ); ?>" class="oc-grid oc-grid--categories <?php if ( 'scroll' === $layout ) echo 'oc-category-grid--scroll'; ?>">
+
+		<?php if ( 'scroll' === $layout ) : ?>
+		<div
+			class="oc-carousel oc-category-carousel"
+			data-oc-carousel
+			data-oc-carousel-autoplay="yes"
+			data-oc-carousel-interval="3500"
+			data-oc-carousel-step="group"
+			role="region"
+			aria-labelledby="<?php echo esc_attr( $heading_id ); ?>"
+			aria-roledescription="<?php esc_attr_e( 'carousel', 'owambe-connect-core' ); ?>"
+		>
+			<button
+				class="oc-carousel__arrow oc-carousel__arrow--prev"
+				type="button"
+				data-oc-carousel-prev
+				aria-controls="<?php echo esc_attr( $carousel_id ); ?>"
+				aria-label="<?php esc_attr_e( 'Show previous vendor categories', 'owambe-connect-core' ); ?>"
+			>&#8249;</button>
+		<?php endif; ?>
+
+		<div
+			id="<?php echo esc_attr( $carousel_id ); ?>"
+			class="oc-grid oc-grid--categories<?php echo 'scroll' === $layout ? ' oc-category-grid--scroll oc-carousel__track' : ''; ?>"
+			<?php if ( 'scroll' === $layout ) : ?>tabindex="0"<?php endif; ?>
+		>
 			<?php foreach ( $terms as $term ) :
 				$url  = add_query_arg( 'cat', $term->slug, $directory );
 				$icon = function_exists( 'oc_get_category_icon' ) ? oc_get_category_icon( $term ) : [];
@@ -84,58 +110,15 @@ $carousel_id = function_exists( 'wp_unique_id' ) ? wp_unique_id( 'oc-cat-' ) : '
 			<?php endforeach; ?>
 		</div>
 		<?php if ( 'scroll' === $layout ) : ?>
-		<div class="oc-cat-dots" data-oc-cat-dots-for="<?php echo esc_attr( $carousel_id ); ?>"></div>
-		<script>
-		(function () {
-			var track = document.getElementById('<?php echo esc_js( $carousel_id ); ?>');
-			var dots  = document.querySelector('[data-oc-cat-dots-for="<?php echo esc_js( $carousel_id ); ?>"]');
-			if (!track || !dots) return;
-			var AUTO = 3500, timer = null;
-			var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-			var GAP = 18;
-			// ~2 cards per dot → a handful of dots that still map to real scroll stops.
-			function step()      { var c = track.querySelector('.oc-cat-card'); return Math.max(1, ( ( c ? c.offsetWidth : 160 ) + GAP ) * 2); }
-			function maxScroll() { return Math.max(0, track.scrollWidth - track.clientWidth); }
-			function count()     { return Math.max(1, Math.ceil( maxScroll() / step() ) + 1); }
-			function current()   { return Math.min( count() - 1, Math.round( track.scrollLeft / step() ) ); }
-			function goTo(i)     { track.scrollTo({ left: Math.min( i * step(), maxScroll() ), behavior: 'smooth' }); }
-			function build() {
-				var n = count();
-				dots.innerHTML = '';
-				dots.style.display = n > 1 ? '' : 'none';
-				if (n <= 1) return;
-				for (var i = 0; i < n; i++) {
-					var b = document.createElement('button');
-					b.type = 'button';
-					b.className = 'oc-cat-dot';
-					b.setAttribute('aria-label', 'Go to group ' + (i + 1));
-					b.addEventListener('click', (function (idx) {
-						return function () { goTo(idx); restart(); };
-					})(i));
-					dots.appendChild(b);
-				}
-				sync();
-			}
-			function sync() {
-				var cur = current(), kids = dots.children;
-				for (var i = 0; i < kids.length; i++) { kids[i].classList.toggle('is-active', i === cur); }
-			}
-			function advance() {
-				var n = count();
-				if (n <= 1) return;
-				goTo( ( current() + 1 ) % n );
-			}
-			function start() { if (reduced || count() <= 1) return; stop(); timer = setInterval(advance, AUTO); }
-			function stop()  { if (timer) { clearInterval(timer); timer = null; } }
-			function restart() { stop(); start(); }
-			track.addEventListener('scroll', sync, { passive: true });
-			['mouseenter', 'touchstart', 'focusin'].forEach(function (e) { track.addEventListener(e, stop,  { passive: true }); });
-			['mouseleave', 'touchend',   'focusout'].forEach(function (e) { track.addEventListener(e, start, { passive: true }); });
-			var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(build, 150); });
-			build();
-			start();
-		})();
-		</script>
+			<button
+				class="oc-carousel__arrow oc-carousel__arrow--next"
+				type="button"
+				data-oc-carousel-next
+				aria-controls="<?php echo esc_attr( $carousel_id ); ?>"
+				aria-label="<?php esc_attr_e( 'Show more vendor categories', 'owambe-connect-core' ); ?>"
+			>&#8250;</button>
+			<div class="oc-cat-dots oc-carousel__dots" data-oc-carousel-dots></div>
+		</div>
 		<?php endif; ?>
 	</div>
 </section>

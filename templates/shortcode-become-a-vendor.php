@@ -13,15 +13,22 @@ $button_text     = ! empty( $button_text )    ? $button_text    : __( 'Start you
 $button_url      = ! empty( $button_url )     ? $button_url     : oc_page_url( 'apply' );
 $secondary_text  = ! empty( $secondary_text ) ? $secondary_text : __( 'I\'m already a vendor', 'owambe-connect-core' );
 $secondary_url   = ! empty( $secondary_url )  ? $secondary_url  : oc_page_url( 'vendor-login' );
+$compact         = isset( $compact ) && 'yes' === strtolower( (string) $compact );
 $show_features   = ! isset( $show_features )  || 'yes' === $show_features;
 $show_steps      = ! isset( $show_steps )     || 'yes' === $show_steps;
+$show_features   = $compact ? false : $show_features;
+$show_steps      = $compact ? false : $show_steps;
 $section_style   = ! empty( $bg_color )       ? ' style="background:' . esc_attr( $bg_color ) . ';"' : '';
 ?>
-<section class="oc-section oc-bav"<?php echo $section_style; // phpcs:ignore ?>>
+<section class="oc-section oc-bav<?php echo $compact ? ' oc-bav--compact' : ''; ?>"<?php echo $section_style; // phpcs:ignore ?>>
 	<div class="oc-container">
 		<div class="oc-bav__hero">
 			<?php if ( $eyebrow ) : ?><p class="oc-bav__eyebrow"><?php echo esc_html( $eyebrow ); ?></p><?php endif; ?>
-			<h1 class="oc-bav__title"><?php echo esc_html( $heading ); ?></h1>
+			<?php if ( $compact ) : ?>
+				<h2 class="oc-bav__title"><?php echo esc_html( $heading ); ?></h2>
+			<?php else : ?>
+				<h1 class="oc-bav__title"><?php echo esc_html( $heading ); ?></h1>
+			<?php endif; ?>
 			<?php if ( $subheading ) : ?><p class="oc-bav__lead"><?php echo esc_html( $subheading ); ?></p><?php endif; ?>
 			<div class="oc-bav__cta">
 				<?php if ( $button_text ) : ?>
