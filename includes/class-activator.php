@@ -24,6 +24,9 @@ class OC_Activator {
 		}
 		self::create_tables();
 		self::seed_categories();
+		if ( class_exists( 'OC_Vendor_Tags' ) ) {
+			OC_Vendor_Tags::seed_default_terms(); // registers its taxonomies itself pre-init.
+		}
 		self::seed_pages();
 		self::seed_legal_pages();
 		self::backfill_vendor_numbers();

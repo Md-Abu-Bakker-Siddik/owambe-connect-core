@@ -28,6 +28,7 @@ class OC_Plugin {
 
 		( new OC_Security() )->register();
 		( new OC_CPT_Manager() )->register();
+		( new OC_Vendor_Tags() )->register();
 		( new OC_Event_CPT() )->register();
 		( new OC_Event_RSVP() )->register();
 		( new OC_Event_Editor() )->register();

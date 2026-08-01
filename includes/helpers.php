@@ -249,31 +249,72 @@ function oc_region_for_city( $city ) {
 }
 
 /**
- * Cultural event specialty options. Single source of truth for the
- * vendor dashboard checkbox group + the public profile pills.
+ * Default cultural specialties — the taxonomy seeder's source of truth AND
+ * the fallback when the `cultural_specialty` taxonomy has no terms yet.
+ * Slugs mirror the legacy `_oc_cultural_specialties` meta values; the four
+ * client additions (Aug 2026) carry the client's exact wording.
  */
-function oc_cultural_specialty_options() {
+function oc_cultural_specialty_defaults() {
 	return [
-		'african'        => __( 'African Events',        'owambe-connect-core' ),
-		'caribbean'      => __( 'Caribbean Events',      'owambe-connect-core' ),
-		'south-asian'    => __( 'South Asian Events',    'owambe-connect-core' ),
-		'multicultural'  => __( 'Multicultural Events',  'owambe-connect-core' ),
-		'luxury'         => __( 'Luxury Events',         'owambe-connect-core' ),
-		'contemporary'   => __( 'Contemporary Events',   'owambe-connect-core' ),
+		'african'         => __( 'African Events',        'owambe-connect-core' ),
+		'caribbean'       => __( 'Caribbean Events',      'owambe-connect-core' ),
+		'south-asian'     => __( 'South Asian Events',    'owambe-connect-core' ),
+		'multicultural'   => __( 'Multicultural Events',  'owambe-connect-core' ),
+		'luxury'          => __( 'Luxury Events',         'owambe-connect-core' ),
+		'contemporary'    => __( 'Contemporary Events',   'owambe-connect-core' ),
+		'east-asian'      => __( 'East Asian',            'owambe-connect-core' ),
+		'southeast-asian' => __( 'Southeast Asian',       'owambe-connect-core' ),
+		'middle-eastern'  => __( 'Middle Eastern',        'owambe-connect-core' ),
+		'british'         => __( 'British',               'owambe-connect-core' ),
 	];
 }
 
 /**
- * Vendor tag options — grouped by Event Types and Services.
- * Returns associative array of [group => [tag, tag, …]] for rendering, and
- * the flat list is also exposed via oc_vendor_tag_options_flat().
+ * Cultural event specialty options. Single source of truth for the
+ * vendor dashboard checkbox group + the public profile pills.
+ *
+ * Reads the `cultural_specialty` taxonomy so admin-managed terms flow to
+ * every consumer; falls back to the defaults until the taxonomy is seeded.
+ * Default terms keep their curated order; admin-added terms append A→Z.
  */
-function oc_vendor_tag_options() {
-	// 14 narrow groups — each 3-7 items — so the accordion in the dashboard
+function oc_cultural_specialty_options() {
+	if ( ! class_exists( 'OC_Vendor_Tags' ) || ! taxonomy_exists( OC_Vendor_Tags::TAX_CULTURE ) ) {
+		return oc_cultural_specialty_defaults();
+	}
+	$terms = get_terms( [ 'taxonomy' => OC_Vendor_Tags::TAX_CULTURE, 'hide_empty' => false ] );
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return oc_cultural_specialty_defaults();
+	}
+	$map = [];
+	foreach ( $terms as $t ) {
+		// WP stores "&" / "'" entity-encoded in term names; legacy option
+		// arrays (and the meta the migration matches against) are raw text.
+		$map[ $t->slug ] = wp_specialchars_decode( $t->name, ENT_QUOTES );
+	}
+	$out = [];
+	foreach ( oc_cultural_specialty_defaults() as $slug => $label ) {
+		if ( isset( $map[ $slug ] ) ) {
+			$out[ $slug ] = $map[ $slug ];
+			unset( $map[ $slug ] );
+		}
+	}
+	asort( $map );
+	return $out + $map;
+}
+
+/**
+ * Default vendor tag groups — the taxonomy seeder's source of truth AND the
+ * fallback when the `vendor_tag` taxonomy has no terms yet. Tag labels must
+ * stay byte-identical to the strings stored in legacy `_oc_vendor_tags`
+ * meta so the migration maps 1:1. Includes the Aug 2026 client additions
+ * (the "Extras & Special touches" group + Henna Artists).
+ */
+function oc_vendor_tag_defaults() {
+	// 15 narrow groups — each 3-7 items — so the accordion in the dashboard
 	// stays scannable. Order is "event types first, then services" (planning
 	// → decor → food → photo → music → MCs → beauty → fashion → print →
-	// rentals → logistics). Existing per-vendor selections are unaffected
-	// by re-grouping because tags are saved as flat strings.
+	// rentals → logistics → extras). Existing per-vendor selections are
+	// unaffected by re-grouping because tags are saved as flat strings.
 	return [
 		// ── Event types ─────────────────────────────────────────
 		__( 'Cultural events',          'owambe-connect-core' ) => [
@@ -311,7 +352,7 @@ function oc_vendor_tag_options() {
 		],
 		__( 'Beauty & styling',         'owambe-connect-core' ) => [
 			'Makeup Artist', 'Bridal Makeup', 'Hair Styling',
-			'Gele Artist', 'Asoebi Styling',
+			'Gele Artist', 'Asoebi Styling', 'Henna Artists',
 		],
 		__( 'Fashion & attire',         'owambe-connect-core' ) => [
 			'Fashion Designer', 'Tailoring', 'Bridal Wear', 'Groom Styling',
@@ -327,7 +368,65 @@ function oc_vendor_tag_options() {
 		__( 'Logistics & support',      'owambe-connect-core' ) => [
 			'Security Services', 'Travel Services', 'Accommodation Services',
 		],
+		__( 'Extras & Special touches', 'owambe-connect-core' ) => [
+			'Event Childcare', 'Event Gift Wrapping Services',
+			'Event Favours and Gifts', "Children's Entertainment",
+		],
 	];
+}
+
+/**
+ * Vendor tag options — grouped by Event Types and Services.
+ * Returns associative array of [group => [tag, tag, …]] for rendering, and
+ * the flat list is also exposed via oc_vendor_tag_options_flat().
+ *
+ * Reads the hierarchical `vendor_tag` taxonomy (parent terms = groups,
+ * children = tags) so admin-managed terms flow to every consumer; falls back
+ * to the defaults until the taxonomy is seeded. Default groups/tags keep
+ * their curated order; admin-added ones append A→Z. Groups the admin has
+ * emptied still render (they just created them and will add tags next).
+ */
+function oc_vendor_tag_options() {
+	if ( ! class_exists( 'OC_Vendor_Tags' ) || ! taxonomy_exists( OC_Vendor_Tags::TAX_TAG ) ) {
+		return oc_vendor_tag_defaults();
+	}
+	$terms = get_terms( [ 'taxonomy' => OC_Vendor_Tags::TAX_TAG, 'hide_empty' => false ] );
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return oc_vendor_tag_defaults();
+	}
+
+	$groups   = [];
+	$children = [];
+	foreach ( $terms as $t ) {
+		// Decode entity-encoded names (see oc_cultural_specialty_options()).
+		$name = wp_specialchars_decode( $t->name, ENT_QUOTES );
+		if ( 0 === (int) $t->parent ) {
+			$groups[ $t->term_id ] = $name;
+		} else {
+			$children[ $t->parent ][] = $name;
+		}
+	}
+
+	$live = [];
+	foreach ( $groups as $id => $name ) {
+		$live[ $name ] = $children[ $id ] ?? [];
+	}
+
+	// Curated order first, admin additions after (groups and tags alike).
+	$out = [];
+	foreach ( oc_vendor_tag_defaults() as $group => $default_tags ) {
+		if ( ! array_key_exists( $group, $live ) ) {
+			continue;
+		}
+		$tags    = $live[ $group ];
+		$ordered = array_values( array_intersect( $default_tags, $tags ) );
+		$extra   = array_diff( $tags, $default_tags );
+		sort( $extra );
+		$out[ $group ] = array_merge( $ordered, $extra );
+		unset( $live[ $group ] );
+	}
+	ksort( $live );
+	return $out + $live;
 }
 
 function oc_vendor_tag_options_flat() {

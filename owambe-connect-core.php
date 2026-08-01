@@ -29,6 +29,7 @@ require_once OC_PLUGIN_DIR . 'includes/helpers.php';
 require_once OC_PLUGIN_DIR . 'includes/class-security.php';
 require_once OC_PLUGIN_DIR . 'includes/class-activator.php';
 require_once OC_PLUGIN_DIR . 'includes/class-cpt.php';
+require_once OC_PLUGIN_DIR . 'includes/class-vendor-tags.php';
 require_once OC_PLUGIN_DIR . 'includes/class-mail.php';
 require_once OC_PLUGIN_DIR . 'includes/class-queries.php';
 require_once OC_PLUGIN_DIR . 'includes/class-registration.php';
