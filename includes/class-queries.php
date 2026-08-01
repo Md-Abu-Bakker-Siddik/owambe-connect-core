@@ -55,14 +55,28 @@ class OC_Queries {
 				'compare' => 'LIKE',
 			];
 		}
-		// Cultural specialty — meta stores a serialized array of keys, so a LIKE
-		// on the key string matches vendors who selected it.
+		// Cultural specialty — now term-backed: an indexed tax_query on the
+		// `cultural_specialty` taxonomy (dual-write keeps terms == meta).
+		// Falls back to the legacy serialized-meta LIKE only while the term
+		// doesn't exist yet (pre-migration safety).
+		$tax_query = [];
 		if ( ! empty( $a['cultural'] ) ) {
-			$meta_query[] = [
-				'key'     => '_oc_cultural_specialties',
-				'value'   => sanitize_key( $a['cultural'] ),
-				'compare' => 'LIKE',
-			];
+			$cultural_slug = sanitize_key( $a['cultural'] );
+			if ( class_exists( 'OC_Vendor_Tags' )
+				&& taxonomy_exists( OC_Vendor_Tags::TAX_CULTURE )
+				&& term_exists( $cultural_slug, OC_Vendor_Tags::TAX_CULTURE ) ) {
+				$tax_query[] = [
+					'taxonomy' => OC_Vendor_Tags::TAX_CULTURE,
+					'field'    => 'slug',
+					'terms'    => $cultural_slug,
+				];
+			} else {
+				$meta_query[] = [
+					'key'     => '_oc_cultural_specialties',
+					'value'   => $cultural_slug,
+					'compare' => 'LIKE',
+				];
+			}
 		}
 		// Nigerian-events specialists (separate boolean meta).
 		if ( ! empty( $a['nigerian'] ) ) {
@@ -81,13 +95,17 @@ class OC_Queries {
 
 		// Handle category filter.
 		if ( ! empty( $a['category'] ) ) {
-			$query_args['tax_query'] = [
-				[
-					'taxonomy' => OC_TAX,
-					'field'    => 'slug',
-					'terms'    => sanitize_title( $a['category'] ),
-				],
+			$tax_query[] = [
+				'taxonomy' => OC_TAX,
+				'field'    => 'slug',
+				'terms'    => sanitize_title( $a['category'] ),
 			];
+		}
+		if ( count( $tax_query ) > 1 ) {
+			$tax_query['relation'] = 'AND';
+		}
+		if ( $tax_query ) {
+			$query_args['tax_query'] = $tax_query;
 		}
 
 		// If search term provided, use custom WHERE filter to search title + services.

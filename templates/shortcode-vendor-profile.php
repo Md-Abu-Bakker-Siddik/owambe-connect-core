@@ -43,12 +43,16 @@ $areas          = (array)  get_post_meta( $id, '_oc_location_areas', true );
 $areas          = array_values( array_filter( array_map( 'trim', $areas ) ) );
 $regions        = (array)  get_post_meta( $id, '_oc_location_regions', true );
 $regions        = array_values( array_filter( array_map( 'trim', $regions ) ) );
-$cultural       = (array)  get_post_meta( $id, '_oc_cultural_specialties', true );
-$cultural       = array_values( array_filter( array_map( 'trim', $cultural ) ) );
+// Tag pills read the taxonomies (admin-managed) and fall back to legacy
+// meta for any vendor not yet migrated/synced.
+$cultural       = class_exists( 'OC_Vendor_Tags' )
+	? OC_Vendor_Tags::vendor_culture_slugs( $id )
+	: array_values( array_filter( array_map( 'trim', (array) get_post_meta( $id, '_oc_cultural_specialties', true ) ) ) );
 $reg_biz        = (string) get_post_meta( $id, '_oc_registered_business', true );
 $nigerian       = (string) get_post_meta( $id, '_oc_nigerian_specialty', true );
-$vendor_tags    = (array)  get_post_meta( $id, '_oc_vendor_tags', true );
-$vendor_tags    = array_values( array_filter( array_map( 'trim', $vendor_tags ) ) );
+$vendor_tags    = class_exists( 'OC_Vendor_Tags' )
+	? OC_Vendor_Tags::vendor_tag_labels( $id )
+	: array_values( array_filter( array_map( 'trim', (array) get_post_meta( $id, '_oc_vendor_tags', true ) ) ) );
 $public_email   = (string) get_post_meta( $id, '_oc_public_email', true );
 
 $country_labels   = function_exists( 'oc_country_options' )            ? oc_country_options()            : [];

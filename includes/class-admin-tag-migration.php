@@ -107,8 +107,7 @@ class OC_Admin_Tag_Migration {
 	 * @return array Batch stats (summed client-side across batches).
 	 */
 	public static function process( array $ids, $execute = false ) {
-		$lookup = self::lookups();
-		$stats  = [
+		$stats = [
 			'scanned' => 0,
 			'culture' => [ 'vendors' => 0, 'mapped' => 0, 'unmapped' => [] ],
 			'tags'    => [ 'vendors' => 0, 'mapped' => 0, 'unmapped' => [] ],
@@ -123,23 +122,15 @@ class OC_Admin_Tag_Migration {
 			$values = self::parse_values( get_post_meta( $id, '_oc_cultural_specialties', true ) );
 			if ( $values ) {
 				$stats['culture']['vendors']++;
-				$term_ids = [];
-				foreach ( $values as $v ) {
-					$key = sanitize_title( $v );
-					if ( isset( $lookup['culture_slug'][ $key ] ) ) {
-						$term_ids[] = $lookup['culture_slug'][ $key ];
-					} elseif ( isset( $lookup['culture_name'][ self::norm( $v ) ] ) ) {
-						$term_ids[] = $lookup['culture_name'][ self::norm( $v ) ];
-					} else {
-						$stats['culture']['unmapped'][ $v ] = ( $stats['culture']['unmapped'][ $v ] ?? 0 ) + 1;
-						continue;
-					}
-					$stats['culture']['mapped']++;
+				$map = OC_Vendor_Tags::map_culture_values( $values );
+				$stats['culture']['mapped'] += count( $values ) - count( $map['unmapped'] );
+				foreach ( $map['unmapped'] as $v ) {
+					$stats['culture']['unmapped'][ $v ] = ( $stats['culture']['unmapped'][ $v ] ?? 0 ) + 1;
 				}
-				if ( $execute && $term_ids ) {
-					$set = wp_set_object_terms( $id, array_values( array_unique( $term_ids ) ), OC_Vendor_Tags::TAX_CULTURE, true );
+				if ( $execute && $map['ids'] ) {
+					$set = wp_set_object_terms( $id, $map['ids'], OC_Vendor_Tags::TAX_CULTURE, true );
 					if ( ! is_wp_error( $set ) ) {
-						$stats['assigned_culture'] += count( $term_ids );
+						$stats['assigned_culture'] += count( $values ) - count( $map['unmapped'] );
 					}
 				}
 			}
@@ -148,22 +139,15 @@ class OC_Admin_Tag_Migration {
 			$values = self::parse_values( get_post_meta( $id, '_oc_vendor_tags', true ) );
 			if ( $values ) {
 				$stats['tags']['vendors']++;
-				$term_ids = [];
-				foreach ( $values as $v ) {
-					if ( isset( $lookup['tag_name'][ self::norm( $v ) ] ) ) {
-						$term_ids[] = $lookup['tag_name'][ self::norm( $v ) ];
-					} elseif ( isset( $lookup['tag_slug'][ sanitize_title( $v ) ] ) ) {
-						$term_ids[] = $lookup['tag_slug'][ sanitize_title( $v ) ];
-					} else {
-						$stats['tags']['unmapped'][ $v ] = ( $stats['tags']['unmapped'][ $v ] ?? 0 ) + 1;
-						continue;
-					}
-					$stats['tags']['mapped']++;
+				$map = OC_Vendor_Tags::map_tag_values( $values );
+				$stats['tags']['mapped'] += count( $values ) - count( $map['unmapped'] );
+				foreach ( $map['unmapped'] as $v ) {
+					$stats['tags']['unmapped'][ $v ] = ( $stats['tags']['unmapped'][ $v ] ?? 0 ) + 1;
 				}
-				if ( $execute && $term_ids ) {
-					$set = wp_set_object_terms( $id, array_values( array_unique( $term_ids ) ), OC_Vendor_Tags::TAX_TAG, true );
+				if ( $execute && $map['ids'] ) {
+					$set = wp_set_object_terms( $id, $map['ids'], OC_Vendor_Tags::TAX_TAG, true );
 					if ( ! is_wp_error( $set ) ) {
-						$stats['assigned_tags'] += count( $term_ids );
+						$stats['assigned_tags'] += count( $values ) - count( $map['unmapped'] );
 					}
 				}
 			}
@@ -173,66 +157,11 @@ class OC_Admin_Tag_Migration {
 	}
 
 	/**
-	 * Legacy meta holds either a serialized array (live data) or a CSV
-	 * string (early format). Return a clean flat list of strings.
+	 * Back-compat wrapper — parsing lives in OC_Vendor_Tags now (single
+	 * source of truth shared with the dual-write sync).
 	 */
 	public static function parse_values( $raw ) {
-		if ( is_array( $raw ) ) {
-			$list = $raw;
-		} elseif ( is_string( $raw ) && '' !== trim( $raw ) ) {
-			$list = explode( ',', $raw );
-		} else {
-			return [];
-		}
-		$out = [];
-		foreach ( $list as $item ) {
-			if ( is_scalar( $item ) ) {
-				$item = trim( (string) $item );
-				if ( '' !== $item ) {
-					$out[] = $item;
-				}
-			}
-		}
-		return $out;
-	}
-
-	/** Case/space/entity-insensitive comparison key. */
-	private static function norm( $value ) {
-		return mb_strtolower( trim( wp_specialchars_decode( (string) $value, ENT_QUOTES ) ) );
-	}
-
-	/**
-	 * Term lookup tables, built once per request.
-	 * Vendor-tag name/slug tables contain CHILD terms only — labels must
-	 * never resolve to a group ("Decor & Styling" tag vs group, see header).
-	 */
-	private static function lookups() {
-		static $lookup = null;
-		if ( null !== $lookup ) {
-			return $lookup;
-		}
-		$lookup = [ 'culture_slug' => [], 'culture_name' => [], 'tag_name' => [], 'tag_slug' => [] ];
-
-		$terms = get_terms( [ 'taxonomy' => OC_Vendor_Tags::TAX_CULTURE, 'hide_empty' => false ] );
-		if ( ! is_wp_error( $terms ) ) {
-			foreach ( $terms as $t ) {
-				$lookup['culture_slug'][ $t->slug ]            = (int) $t->term_id;
-				$lookup['culture_name'][ self::norm( $t->name ) ] = (int) $t->term_id;
-			}
-		}
-
-		$terms = get_terms( [ 'taxonomy' => OC_Vendor_Tags::TAX_TAG, 'hide_empty' => false ] );
-		if ( ! is_wp_error( $terms ) ) {
-			foreach ( $terms as $t ) {
-				if ( 0 === (int) $t->parent ) {
-					continue; // groups are containers, never assignment targets.
-				}
-				$lookup['tag_name'][ self::norm( $t->name ) ] = (int) $t->term_id;
-				$lookup['tag_slug'][ $t->slug ]               = (int) $t->term_id;
-			}
-		}
-
-		return $lookup;
+		return OC_Vendor_Tags::parse_values( $raw );
 	}
 
 	/* ── Page ─────────────────────────────────────────────────────────── */

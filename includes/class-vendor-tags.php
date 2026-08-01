@@ -35,6 +35,13 @@ class OC_Vendor_Tags {
 		// Priority 11: OC_CPT_Manager registers the vendor CPT at 10.
 		add_action( 'init', [ __CLASS__, 'register_taxonomies' ], 11 );
 		add_action( 'admin_init', [ __CLASS__, 'maybe_seed' ] );
+
+		// Dual-write: whenever legacy tag meta changes — dashboard save, admin
+		// form, CSV import, anything — resync that vendor's taxonomy terms.
+		// Hooking the meta layer covers every save path with zero per-form code.
+		add_action( 'added_post_meta',   [ __CLASS__, 'on_meta_change' ], 10, 3 );
+		add_action( 'updated_post_meta', [ __CLASS__, 'on_meta_change' ], 10, 3 );
+		add_action( 'deleted_post_meta', [ __CLASS__, 'on_meta_change' ], 10, 3 );
 	}
 
 	public static function register_taxonomies() {
@@ -144,6 +151,200 @@ class OC_Vendor_Tags {
 		update_option( self::SEED_OPTION, self::SEED_VERSION );
 
 		return $created;
+	}
+
+	/* ── Legacy-value mapping (single source of truth — the migration tool
+	      and the dual-write sync both resolve through these) ─────────────── */
+
+	/**
+	 * Legacy meta holds either a serialized array (live data) or a CSV
+	 * string (early format). Return a clean flat list of strings.
+	 */
+	public static function parse_values( $raw ) {
+		if ( is_array( $raw ) ) {
+			$list = $raw;
+		} elseif ( is_string( $raw ) && '' !== trim( $raw ) ) {
+			$list = explode( ',', $raw );
+		} else {
+			return [];
+		}
+		$out = [];
+		foreach ( $list as $item ) {
+			if ( is_scalar( $item ) ) {
+				$item = trim( (string) $item );
+				if ( '' !== $item ) {
+					$out[] = $item;
+				}
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Map legacy cultural-specialty values (slugs, name fallback) to term IDs.
+	 *
+	 * @param string[] $values Raw meta values.
+	 * @return array{ids: int[], unmapped: string[]}
+	 */
+	public static function map_culture_values( array $values ) {
+		$lookup = self::lookups();
+		$ids    = [];
+		$un     = [];
+		foreach ( $values as $v ) {
+			$key = sanitize_title( $v );
+			if ( isset( $lookup['culture_slug'][ $key ] ) ) {
+				$ids[] = $lookup['culture_slug'][ $key ];
+			} elseif ( isset( $lookup['culture_name'][ self::norm( $v ) ] ) ) {
+				$ids[] = $lookup['culture_name'][ self::norm( $v ) ];
+			} else {
+				$un[] = $v;
+			}
+		}
+		return [ 'ids' => array_values( array_unique( $ids ) ), 'unmapped' => $un ];
+	}
+
+	/**
+	 * Map legacy vendor-tag labels to CHILD term IDs (never groups — the
+	 * "Decor & Styling" tag must not resolve to the "Decor & styling" group).
+	 *
+	 * @param string[] $values Raw meta values.
+	 * @return array{ids: int[], unmapped: string[]}
+	 */
+	public static function map_tag_values( array $values ) {
+		$lookup = self::lookups();
+		$ids    = [];
+		$un     = [];
+		foreach ( $values as $v ) {
+			if ( isset( $lookup['tag_name'][ self::norm( $v ) ] ) ) {
+				$ids[] = $lookup['tag_name'][ self::norm( $v ) ];
+			} elseif ( isset( $lookup['tag_slug'][ sanitize_title( $v ) ] ) ) {
+				$ids[] = $lookup['tag_slug'][ sanitize_title( $v ) ];
+			} else {
+				$un[] = $v;
+			}
+		}
+		return [ 'ids' => array_values( array_unique( $ids ) ), 'unmapped' => $un ];
+	}
+
+	/** Case/space/entity-insensitive comparison key. */
+	public static function norm( $value ) {
+		return mb_strtolower( trim( wp_specialchars_decode( (string) $value, ENT_QUOTES ) ) );
+	}
+
+	/**
+	 * Term lookup tables, built once per request.
+	 */
+	private static function lookups() {
+		static $lookup = null;
+		if ( null !== $lookup ) {
+			return $lookup;
+		}
+		$lookup = [ 'culture_slug' => [], 'culture_name' => [], 'tag_name' => [], 'tag_slug' => [] ];
+
+		$terms = get_terms( [ 'taxonomy' => self::TAX_CULTURE, 'hide_empty' => false ] );
+		if ( ! is_wp_error( $terms ) ) {
+			foreach ( $terms as $t ) {
+				$lookup['culture_slug'][ $t->slug ]               = (int) $t->term_id;
+				$lookup['culture_name'][ self::norm( $t->name ) ] = (int) $t->term_id;
+			}
+		}
+
+		$terms = get_terms( [ 'taxonomy' => self::TAX_TAG, 'hide_empty' => false ] );
+		if ( ! is_wp_error( $terms ) ) {
+			foreach ( $terms as $t ) {
+				if ( 0 === (int) $t->parent ) {
+					continue; // groups are containers, never assignment targets.
+				}
+				$lookup['tag_name'][ self::norm( $t->name ) ] = (int) $t->term_id;
+				$lookup['tag_slug'][ $t->slug ]               = (int) $t->term_id;
+			}
+		}
+
+		return $lookup;
+	}
+
+	/* ── Dual-write sync (meta stays the write model during transition) ──── */
+
+	/**
+	 * Meta-layer listener: fires on add/update/delete of ANY post meta;
+	 * resyncs terms when one of the two legacy tag keys changed on a vendor.
+	 * Covers every save path — dashboard, admin form, CSV import — without
+	 * per-form code.
+	 *
+	 * @param int|int[] $meta_id   Meta row ID(s) — unused.
+	 * @param int       $object_id Post ID.
+	 * @param string    $meta_key  Meta key that changed.
+	 */
+	public static function on_meta_change( $meta_id, $object_id, $meta_key ) {
+		if ( '_oc_cultural_specialties' !== $meta_key && '_oc_vendor_tags' !== $meta_key ) {
+			return;
+		}
+		if ( OC_CPT !== get_post_type( $object_id ) ) {
+			return;
+		}
+		self::sync_vendor_terms( (int) $object_id, $meta_key );
+	}
+
+	/**
+	 * Replace-mode sync: the vendor's meta selection is authoritative, so
+	 * terms are SET (not appended) — unchecking a tag removes its term.
+	 *
+	 * @param int    $vendor_id Vendor post ID.
+	 * @param string $only_key  Optional: limit sync to the taxonomy backing
+	 *                          this meta key; default syncs both.
+	 */
+	public static function sync_vendor_terms( $vendor_id, $only_key = '' ) {
+		if ( ! taxonomy_exists( self::TAX_CULTURE ) || ! taxonomy_exists( self::TAX_TAG ) ) {
+			return;
+		}
+		if ( '' === $only_key || '_oc_cultural_specialties' === $only_key ) {
+			$values = self::parse_values( get_post_meta( $vendor_id, '_oc_cultural_specialties', true ) );
+			$map    = self::map_culture_values( $values );
+			wp_set_object_terms( $vendor_id, $map['ids'], self::TAX_CULTURE, false );
+		}
+		if ( '' === $only_key || '_oc_vendor_tags' === $only_key ) {
+			$values = self::parse_values( get_post_meta( $vendor_id, '_oc_vendor_tags', true ) );
+			$map    = self::map_tag_values( $values );
+			wp_set_object_terms( $vendor_id, $map['ids'], self::TAX_TAG, false );
+		}
+	}
+
+	/* ── Read helpers (terms first, legacy meta fallback) ────────────────── */
+
+	/**
+	 * Vendor's cultural specialties as slugs — term-backed, falling back to
+	 * legacy meta for vendors that have not been migrated/synced yet.
+	 *
+	 * @param int $vendor_id Vendor post ID.
+	 * @return string[]
+	 */
+	public static function vendor_culture_slugs( $vendor_id ) {
+		if ( taxonomy_exists( self::TAX_CULTURE ) ) {
+			$slugs = wp_get_object_terms( $vendor_id, self::TAX_CULTURE, [ 'fields' => 'slugs' ] );
+			if ( ! is_wp_error( $slugs ) && $slugs ) {
+				return array_values( $slugs );
+			}
+		}
+		return self::parse_values( get_post_meta( $vendor_id, '_oc_cultural_specialties', true ) );
+	}
+
+	/**
+	 * Vendor's tags as display labels (decoded child-term names) — term-backed
+	 * with legacy meta fallback.
+	 *
+	 * @param int $vendor_id Vendor post ID.
+	 * @return string[]
+	 */
+	public static function vendor_tag_labels( $vendor_id ) {
+		if ( taxonomy_exists( self::TAX_TAG ) ) {
+			$names = wp_get_object_terms( $vendor_id, self::TAX_TAG, [ 'fields' => 'names' ] );
+			if ( ! is_wp_error( $names ) && $names ) {
+				return array_map( function ( $n ) {
+					return wp_specialchars_decode( $n, ENT_QUOTES );
+				}, array_values( $names ) );
+			}
+		}
+		return self::parse_values( get_post_meta( $vendor_id, '_oc_vendor_tags', true ) );
 	}
 
 	/**
