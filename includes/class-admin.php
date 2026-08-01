@@ -61,6 +61,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="taxonomy=cultural_specialty"]::before,
 			#adminmenu .wp-submenu li a[href*="taxonomy=vendor_tag"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-tag-migration"]::before,
+			#adminmenu .wp-submenu li a[href*="page=oc-geo-backfill"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-settings"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before,
@@ -92,6 +93,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="taxonomy=cultural_specialty"]::before                   { content: "\f11f"; } /* admin-site-alt3 globe */
 			#adminmenu .wp-submenu li a[href*="taxonomy=vendor_tag"]::before                           { content: "\f323"; } /* tag */
 			#adminmenu .wp-submenu li a[href*="page=oc-tag-migration"]::before                         { content: "\f310"; } /* migrate */
+			#adminmenu .wp-submenu li a[href*="page=oc-geo-backfill"]::before                          { content: "\f230"; } /* location */
 			#adminmenu .wp-submenu li a[href*="page=oc-settings"]::before                              { content: "\f108"; } /* admin-generic gear */
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before                       { content: "\f332"; } /* shield */
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before                           { content: "\f105"; } /* admin-page */

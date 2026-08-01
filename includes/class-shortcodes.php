@@ -421,6 +421,22 @@ class OC_Shortcodes {
 			'heading'      => '',
 			'subheading'   => '',
 		], $atts );
+		// City + radius but no browser coords → centre the search on the
+		// typed city via the static table (no location permission needed).
+		$near_lat = isset( $_GET['near_lat'] ) ? sanitize_text_field( wp_unslash( $_GET['near_lat'] ) ) : '';
+		$near_lng = isset( $_GET['near_lng'] ) ? sanitize_text_field( wp_unslash( $_GET['near_lng'] ) ) : '';
+		$radius   = isset( $_GET['radius'] )   ? (float) $_GET['radius']                                : 0;
+		$city_in  = isset( $_GET['city'] )     ? sanitize_text_field( wp_unslash( $_GET['city'] ) )     : '';
+		if ( $radius > 0 && ( '' === $near_lat || '' === $near_lng ) && '' !== $city_in && class_exists( 'OC_Geo' ) ) {
+			foreach ( OC_Geo::city_coords() as $city => $coords ) {
+				if ( 0 === strcasecmp( $city, $city_in ) ) {
+					$near_lat = (string) $coords[0];
+					$near_lng = (string) $coords[1];
+					break;
+				}
+			}
+		}
+
 		$atts['query'] = OC_Queries::directory( [
 			'paged'    => max( 1, (int) get_query_var( 'paged', isset( $_GET['paged'] ) ? (int) $_GET['paged'] : 1 ) ),
 			'category' => isset( $_GET['cat'] )         ? sanitize_title( $_GET['cat'] )                    : '',
@@ -429,6 +445,9 @@ class OC_Shortcodes {
 			'city'     => isset( $_GET['city'] )        ? sanitize_text_field( wp_unslash( $_GET['city'] ) )     : '',
 			'cultural' => isset( $_GET['cultural'] )    ? sanitize_key( wp_unslash( $_GET['cultural'] ) )        : '',
 			'nigerian' => ! empty( $_GET['nigerian'] )  ? '1'                                                    : '',
+			'near_lat' => $near_lat,
+			'near_lng' => $near_lng,
+			'radius'   => $radius,
 			'per_page' => (int) $atts['per_page'],
 		] );
 		return oc_get_template( 'shortcode-directory.php', $atts );

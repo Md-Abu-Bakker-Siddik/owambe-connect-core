@@ -50,6 +50,8 @@ function oc_vendor_fields() {
 		'_oc_location_country'     => [ 'label' => __( 'Country / Region',  'owambe-connect-core' ), 'type' => 'select',   'sanitize' => 'sanitize_text_field' ],
 		'_oc_location_areas'       => [ 'label' => __( 'Cities / Areas covered', 'owambe-connect-core' ), 'type' => 'multi', 'sanitize' => 'oc_sanitize_csv' ],
 		'_oc_location_regions'     => [ 'label' => __( 'Regions covered',  'owambe-connect-core' ), 'type' => 'multi', 'sanitize' => 'oc_sanitize_csv' ],
+		'_oc_lat'                  => [ 'label' => __( 'Latitude (system)',  'owambe-connect-core' ), 'type' => 'string', 'sanitize' => 'sanitize_text_field' ],
+		'_oc_lng'                  => [ 'label' => __( 'Longitude (system)', 'owambe-connect-core' ), 'type' => 'string', 'sanitize' => 'sanitize_text_field' ],
 		'_oc_cultural_specialties' => [ 'label' => __( 'Cultural specialties', 'owambe-connect-core' ), 'type' => 'multi',  'sanitize' => 'oc_sanitize_csv' ],
 		'_oc_nigerian_specialty'   => [ 'label' => __( 'Specialises in Nigerian events', 'owambe-connect-core' ), 'type' => 'select', 'sanitize' => 'sanitize_text_field' ],
 		'_oc_registered_business'  => [ 'label' => __( 'Registered business', 'owambe-connect-core' ), 'type' => 'select', 'sanitize' => 'sanitize_text_field' ],

@@ -29,6 +29,7 @@ class OC_Plugin {
 		( new OC_Security() )->register();
 		( new OC_CPT_Manager() )->register();
 		( new OC_Vendor_Tags() )->register();
+		( new OC_Geo() )->register();
 		( new OC_Event_CPT() )->register();
 		( new OC_Event_RSVP() )->register();
 		( new OC_Event_Editor() )->register();
@@ -90,6 +91,7 @@ class OC_Plugin {
 			( new OC_Admin_Subscriptions() )->register();
 			( new OC_Admin_Verification() )->register();
 			( new OC_Admin_Tag_Migration() )->register();
+			( new OC_Admin_Geo_Backfill() )->register();
 		( new OC_Category_Icons() )->register();
 			( new OC_Admin_Analytics() )->register();
 			( new OC_Admin_Security_Health() )->register();

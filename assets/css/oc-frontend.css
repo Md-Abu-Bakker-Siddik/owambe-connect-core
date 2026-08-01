@@ -533,24 +533,39 @@
 @media (min-width: 768px) {
 	.oc-filters__row { grid-template-columns: 2fr 1fr 1fr auto; align-items: end; }
 }
-.oc-filters__field { display: flex; flex-direction: column; gap: 6px; }
-.oc-filters__field label { font-size: 0.85rem; color: var(--oc-stone); font-weight: 500; }
+/* Filter fields — same field language as the event page (registry/RSVP):
+   soft 10px radius, custom burgundy chevron on selects, burgundy focus ring. */
+.oc-filters__field { display: flex; flex-direction: column; gap: 5px; }
+.oc-filters__field label { font-size: 13px; color: #5B534F; font-weight: 600; }
 .oc-filters__field input,
 .oc-filters__field select {
-	padding: 11px 12px;
-	border: 1px solid var(--oc-border);
-	border-radius: var(--oc-radius-sm);
-	background: var(--oc-white);
-	font-size: 0.95rem;
+	box-sizing: border-box;
+	padding: 11px 13px;
+	border: 1px solid var(--oc-border, #E4DDD2);
+	border-radius: 10px;
+	background: var(--oc-white, #fff);
+	font-size: 14.5px;
 	font-family: inherit;
-	color: var(--oc-ink);
+	color: #1F1B1A;
+}
+.oc-filters__field select {
+	padding-right: 40px;
+	cursor: pointer;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%236E0F2C' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 14px center;
+	background-size: 10px 7px;
 }
 .oc-filters__field input:focus,
 .oc-filters__field select:focus {
-	outline: 2px solid var(--oc-gold);
-	outline-offset: 1px;
-	border-color: var(--oc-gold);
+	outline: none;
+	border-color: #6E0F2C;
+	box-shadow: 0 0 0 3px rgba(110, 15, 44, .10);
 }
+.oc-filters__field input::placeholder { color: #9A938C; }
 .oc-filters__actions { display: flex; gap: 8px; }
 
 /* ---------- Pagination ---------- */

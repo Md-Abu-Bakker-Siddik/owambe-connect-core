@@ -70,6 +70,8 @@ require_once OC_PLUGIN_DIR . 'includes/class-admin-retailers.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-subscriptions.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-verification.php';
 require_once OC_PLUGIN_DIR . 'includes/class-admin-tag-migration.php';
+require_once OC_PLUGIN_DIR . 'includes/class-geo.php';
+require_once OC_PLUGIN_DIR . 'includes/class-admin-geo-backfill.php';
 require_once OC_PLUGIN_DIR . 'includes/class-plugin.php';
 
 register_activation_hook( __FILE__, [ 'OC_Activator', 'activate' ] );

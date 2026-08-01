@@ -25,6 +25,9 @@ class OC_Queries {
 			'city'     => '',
 			'cultural' => '', // cultural-specialty key, e.g. 'african_events'
 			'nigerian' => '', // truthy → only Nigerian-events specialists
+			'near_lat' => '', // radius search centre (from "near me" / city pick)
+			'near_lng' => '',
+			'radius'   => 0,  // miles; 0 = radius search off
 		];
 		$a = wp_parse_args( $args, $defaults );
 
@@ -114,7 +117,36 @@ class OC_Queries {
 			add_filter( 'posts_where', [ __CLASS__, 'filter_posts_where_title_services' ], 10, 2 );
 		}
 
+		// Radius search (P12): coarse bounding-box meta_query prunes by the
+		// numeric index, then an exact Haversine in posts_clauses filters the
+		// box corners out and orders by distance (nearest first).
+		$lat    = is_numeric( $a['near_lat'] ) ? (float) $a['near_lat'] : null;
+		$lng    = is_numeric( $a['near_lng'] ) ? (float) $a['near_lng'] : null;
+		$radius = max( 0, (float) $a['radius'] );
+		$geo_on = null !== $lat && null !== $lng && $radius > 0
+			&& $lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180;
+		if ( $geo_on ) {
+			$d_lat = $radius / 69.0; // ~miles per degree latitude.
+			$d_lng = $radius / max( 0.01, 69.0 * cos( deg2rad( $lat ) ) );
+			$box   = [
+				'relation' => 'AND',
+				[ 'key' => '_oc_lat', 'value' => [ $lat - $d_lat, $lat + $d_lat ], 'compare' => 'BETWEEN', 'type' => 'DECIMAL(10,6)' ],
+				[ 'key' => '_oc_lng', 'value' => [ $lng - $d_lng, $lng + $d_lng ], 'compare' => 'BETWEEN', 'type' => 'DECIMAL(10,6)' ],
+			];
+			$query_args['meta_query'] = empty( $query_args['meta_query'] )
+				? $box
+				: [ 'relation' => 'AND', $query_args['meta_query'], $box ];
+
+			self::$geo_center = [ $lat, $lng, $radius ];
+			add_filter( 'posts_clauses', [ __CLASS__, 'filter_posts_clauses_haversine' ], 10, 2 );
+		}
+
 		$q = new WP_Query( $query_args );
+
+		if ( $geo_on ) {
+			remove_filter( 'posts_clauses', [ __CLASS__, 'filter_posts_clauses_haversine' ], 10 );
+			self::$geo_center = null;
+		}
 
 		if ( ! empty( $search_term ) ) {
 			remove_filter( 'posts_where', [ __CLASS__, 'filter_posts_where_title_services' ], 10 );
@@ -123,6 +155,41 @@ class OC_Queries {
 		self::maybe_log_search( $a, $q );
 
 		return $q;
+	}
+
+	/** Radius-search centre while a directory geo query runs: [lat, lng, miles]. */
+	private static $geo_center = null;
+
+	/**
+	 * Exact great-circle distance for radius search. Joins the coord meta,
+	 * keeps rows within the radius (the bounding box already pruned the bulk)
+	 * and orders nearest-first. acos() input is clamped to [-1, 1] so
+	 * identical points can't produce NULL from float drift.
+	 */
+	public static function filter_posts_clauses_haversine( $clauses, $query ) {
+		global $wpdb;
+		if ( null === self::$geo_center ) {
+			return $clauses;
+		}
+		list( $lat, $lng, $radius ) = self::$geo_center;
+
+		$clauses['join']  .= $wpdb->prepare(
+			" INNER JOIN {$wpdb->postmeta} oc_geo_lat ON oc_geo_lat.post_id = {$wpdb->posts}.ID AND oc_geo_lat.meta_key = %s" .
+			" INNER JOIN {$wpdb->postmeta} oc_geo_lng ON oc_geo_lng.post_id = {$wpdb->posts}.ID AND oc_geo_lng.meta_key = %s",
+			'_oc_lat', '_oc_lng'
+		);
+
+		$distance = $wpdb->prepare(
+			'( 3959 * ACOS( LEAST( 1, GREATEST( -1,' .
+			' COS( RADIANS(%f) ) * COS( RADIANS( oc_geo_lat.meta_value + 0 ) ) * COS( RADIANS( oc_geo_lng.meta_value + 0 ) - RADIANS(%f) )' .
+			' + SIN( RADIANS(%f) ) * SIN( RADIANS( oc_geo_lat.meta_value + 0 ) ) ) ) ) )',
+			$lat, $lng, $lat
+		);
+
+		$clauses['where']  .= $wpdb->prepare( " AND {$distance} <= %f", $radius );
+		$clauses['orderby'] = "{$distance} ASC, " . $clauses['orderby'];
+
+		return $clauses;
 	}
 
 	/**
