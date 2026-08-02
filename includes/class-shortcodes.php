@@ -27,6 +27,7 @@ class OC_Shortcodes {
 		add_shortcode( 'oc_recently_added',       [ $this, 'recently_added' ] );
 		add_shortcode( 'oc_premium_collection',   [ $this, 'premium_collection' ] );
 		add_shortcode( 'oc_blog_carousel',        [ $this, 'blog_carousel' ] );
+		add_shortcode( 'oc_checklists',           [ $this, 'checklists' ] );
 		add_shortcode( 'oc_directory',            [ $this, 'directory' ] );
 		add_shortcode( 'oc_vendor_profile',       [ $this, 'vendor_profile' ] );
 		add_shortcode( 'oc_register_form',        [ $this, 'register_form' ] );
@@ -400,6 +401,18 @@ class OC_Shortcodes {
 		$atts['count'] = max( 1, min( 24, (int) $atts['count'] ) );
 		$atts['query'] = OC_Queries::latest_posts( $atts['count'] );
 		return oc_get_template( 'shortcode-blog-carousel.php', $atts );
+	}
+
+	/**
+	 * Planning resources / checklists downloads page (P14).
+	 */
+	public function checklists( $atts = [] ) {
+		$atts = shortcode_atts( [
+			'heading'    => '',
+			'subheading' => '',
+		], $atts, 'oc_checklists' );
+		$atts['resources'] = oc_planning_resources();
+		return oc_get_template( 'shortcode-checklists.php', $atts );
 	}
 
 	/**

@@ -62,6 +62,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="taxonomy=vendor_tag"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-tag-migration"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-geo-backfill"]::before,
+			#adminmenu .wp-submenu li a[href*="page=oc-resources"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-settings"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before,
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before,
@@ -94,6 +95,7 @@ class OC_Admin {
 			#adminmenu .wp-submenu li a[href*="taxonomy=vendor_tag"]::before                           { content: "\f323"; } /* tag */
 			#adminmenu .wp-submenu li a[href*="page=oc-tag-migration"]::before                         { content: "\f310"; } /* migrate */
 			#adminmenu .wp-submenu li a[href*="page=oc-geo-backfill"]::before                          { content: "\f230"; } /* location */
+			#adminmenu .wp-submenu li a[href*="page=oc-resources"]::before                            { content: "\f497"; } /* media-document */
 			#adminmenu .wp-submenu li a[href*="page=oc-settings"]::before                              { content: "\f108"; } /* admin-generic gear */
 			#adminmenu .wp-submenu li a[href*="page=oc-security-health"]::before                       { content: "\f332"; } /* shield */
 			#adminmenu .wp-submenu li a[href*="page=oc-import-demo"]::before                           { content: "\f105"; } /* admin-page */
@@ -111,6 +113,20 @@ class OC_Admin {
 				padding-right: 14px;
 				padding-left: 14px;
 				transition: all .1s ease-in-out, outline 0s;
+			}
+
+			/* Flyout submenu width — core's 160px wraps longer labels
+			   ("Planning Resources"). Widen the hover flyout and keep each
+			   label on one line; the inline (current-page) submenu keeps
+			   core behaviour since the sidebar itself is fixed-width. */
+			#adminmenu .wp-not-current-submenu .wp-submenu,
+			.folded #adminmenu .wp-submenu {
+				min-width: 186px;
+			}
+			#adminmenu .wp-not-current-submenu .wp-submenu li a,
+			.folded #adminmenu .wp-submenu li a {
+				white-space: nowrap;
+				padding-right: 18px;
 			}
 		</style>
 		<?php

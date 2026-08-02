@@ -92,8 +92,14 @@ $tabs = [
 	'saved'     => [ 'label' => __( 'Saved vendors',      'owambe-connect-core' ), 'icon' => 'heart' ],
 	'contacted' => [ 'label' => __( 'Recently contacted', 'owambe-connect-core' ), 'icon' => 'email-alt' ],
 	'event'     => [ 'label' => __( 'My event page',      'owambe-connect-core' ), 'icon' => 'calendar-alt' ],
+	'resources' => [ 'label' => __( 'Planning resources', 'owambe-connect-core' ), 'icon' => 'media-document' ],
 	'account'   => [ 'label' => __( 'Account',            'owambe-connect-core' ), 'icon' => 'admin-users' ],
 ];
+
+// P14 — curated downloads surfaced on the dashboard (same source as the
+// Planning Resources page).
+$resources     = function_exists( 'oc_planning_resources' ) ? oc_planning_resources() : [];
+$resources_url = oc_page_url( 'planning-resources' );
 ?>
 <div class="oc-cd oc-vd" id="oc-client-dashboard">
 	<div class="oc-vd__container">
@@ -266,6 +272,52 @@ $tabs = [
 						<h2><?php esc_html_e( 'Your event page is coming soon', 'owambe-connect-core' ); ?></h2>
 						<p><?php esc_html_e( 'Soon you\'ll be able to build a beautiful page for your event — with your story, schedule, RSVP and gift registry — and share it with guests on WhatsApp.', 'owambe-connect-core' ); ?></p>
 					</div>
+				</section>
+
+				<!-- ============== Planning resources ============== -->
+				<section class="oc-vd__panel" data-oc-panel="resources">
+					<header class="oc-vd__panel-head">
+						<h1><?php esc_html_e( 'Planning resources', 'owambe-connect-core' ); ?></h1>
+						<p><?php esc_html_e( 'Free checklists, templates and guides to keep your planning on track.', 'owambe-connect-core' ); ?></p>
+					</header>
+
+					<?php if ( $resources ) : ?>
+						<div class="oc-cd__resources">
+							<?php foreach ( $resources as $r ) : ?>
+								<div class="oc-vd__card oc-cd__resource">
+									<div class="oc-cd__resource-main">
+										<span class="dashicons dashicons-media-document" aria-hidden="true"></span>
+										<div>
+											<h2 class="oc-cd__resource-title"><?php echo esc_html( $r['title'] ); ?></h2>
+											<?php if ( $r['desc'] ) : ?>
+												<p class="oc-cd__resource-desc"><?php echo esc_html( $r['desc'] ); ?></p>
+											<?php endif; ?>
+										</div>
+									</div>
+									<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $r['url'] ); ?>" target="_blank" rel="noopener" download><?php esc_html_e( 'Download', 'owambe-connect-core' ); ?></a>
+								</div>
+							<?php endforeach; ?>
+						</div>
+						<p style="margin-top:14px;">
+							<a class="oc-vd__menu-link" style="display:inline-flex;" href="<?php echo esc_url( $resources_url ); ?>"><?php esc_html_e( 'View all resources →', 'owambe-connect-core' ); ?></a>
+						</p>
+					<?php else : ?>
+						<div class="oc-cd__empty">
+							<span class="dashicons dashicons-media-document" aria-hidden="true"></span>
+							<h2><?php esc_html_e( 'Resources coming soon', 'owambe-connect-core' ); ?></h2>
+							<p><?php esc_html_e( 'Free planning checklists, contract templates and guides will appear here shortly.', 'owambe-connect-core' ); ?></p>
+						</div>
+					<?php endif; ?>
+
+					<style>
+						.oc-cd__resources { display: flex; flex-direction: column; gap: 12px; }
+						.oc-cd__resource { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+						.oc-cd__resource-main { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+						.oc-cd__resource-main .dashicons { color: #6E0F2C; font-size: 24px; width: 24px; height: 24px; margin-top: 2px; }
+						.oc-cd__resource-title { margin: 0 0 3px; font-size: 15.5px; }
+						.oc-cd__resource-desc { margin: 0; color: #6B6361; font-size: 13px; }
+						@media (max-width: 560px) { .oc-cd__resource { flex-direction: column; align-items: flex-start; } }
+					</style>
 				</section>
 
 				<!-- ============== Account ============== -->

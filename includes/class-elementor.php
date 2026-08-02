@@ -41,6 +41,7 @@ class OC_Elementor {
 		require_once $dir . 'widget-vendor-dashboard.php';
 		require_once $dir . 'widget-contact-form.php';
 		require_once $dir . 'widget-cta.php';
+		require_once $dir . 'widget-checklists.php';
 		require_once $dir . 'widget-how-it-works.php';
 		require_once $dir . 'widget-testimonials.php';
 		require_once $dir . 'widget-faq.php';
@@ -66,6 +67,7 @@ class OC_Elementor {
 		$manager->register( new OC_Widget_Vendor_Dashboard() );
 		$manager->register( new OC_Widget_Contact_Form() );
 		$manager->register( new OC_Widget_CTA() );
+		$manager->register( new OC_Widget_Checklists() );
 		$manager->register( new OC_Widget_How_It_Works() );
 		$manager->register( new OC_Widget_Testimonials() );
 		$manager->register( new OC_Widget_FAQ() );

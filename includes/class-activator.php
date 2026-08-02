@@ -204,6 +204,12 @@ class OC_Activator {
 				'content'       => '',
 				'is_posts_page' => true,
 			],
+			[
+				// P14 — free checklists / templates / guides downloads.
+				'slug'    => 'planning-resources',
+				'title'   => __( 'Planning Resources', 'owambe-connect-core' ),
+				'content' => '[oc_checklists]',
+			],
 		];
 
 		$slug_to_id = [];

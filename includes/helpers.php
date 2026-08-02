@@ -81,6 +81,33 @@ function oc_vendor_fields() {
 	];
 }
 
+/**
+ * Curated planning-resource downloads (P14) — set in Vendors → Planning
+ * Resources. Only rows with a file URL are returned.
+ *
+ * @return array<int, array{title: string, desc: string, type: string, url: string, media_id: int}>
+ */
+function oc_planning_resources() {
+	$rows = get_option( 'oc_planning_resources', [] );
+	if ( ! is_array( $rows ) ) {
+		return [];
+	}
+	$out = [];
+	foreach ( $rows as $r ) {
+		if ( ! is_array( $r ) || empty( $r['url'] ) ) {
+			continue;
+		}
+		$out[] = [
+			'title'    => (string) ( $r['title'] ?? '' ),
+			'desc'     => (string) ( $r['desc'] ?? '' ),
+			'type'     => (string) ( $r['type'] ?? '' ),
+			'url'      => (string) $r['url'],
+			'media_id' => (int) ( $r['media_id'] ?? 0 ),
+		];
+	}
+	return $out;
+}
+
 function oc_price_range_options() {
 	return [
 		'budget'    => __( '£ — Budget',     'owambe-connect-core' ),
