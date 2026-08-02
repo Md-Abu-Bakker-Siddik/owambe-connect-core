@@ -669,10 +669,10 @@ class OC_Admin_Add_Vendor {
 						<div class="oc-av-card">
 							<h2><?php esc_html_e( 'Categories', 'owambe-connect-core' ); ?> <span style="color:#b32d2e">*</span></h2>
 							<div class="oc-av-checks oc-av-checks--col">
-								<?php foreach ( $categories as $term ) : ?>
-									<label class="oc-av-chk">
+								<?php foreach ( $categories as $term ) : $is_child = (int) ( $term->depth ?? 0 ) > 0; ?>
+									<label class="oc-av-chk<?php echo $is_child ? ' oc-av-chk--child' : ''; ?>"<?php echo $is_child ? ' style="margin-left:16px;"' : ''; ?>>
 										<input type="checkbox" name="categories[]" value="<?php echo esc_attr( $term->term_id ); ?>" <?php checked( in_array( (int) $term->term_id, array_map( 'intval', (array) $post_cat_ids ), true ) ); ?>/>
-										<span><?php echo esc_html( $term->name ); ?></span>
+										<span><?php echo esc_html( ( $is_child ? '↳ ' : '' ) . $term->name ); ?></span>
 									</label>
 								<?php endforeach; ?>
 							</div>

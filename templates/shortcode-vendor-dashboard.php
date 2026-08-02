@@ -577,13 +577,14 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 									<small><?php esc_html_e( 'Pick the headline category (or two) clients will browse under.', 'owambe-connect-core' ); ?></small>
 								</label>
 								<div class="oc-vd__chips">
-									<?php foreach ( $categories as $term ) : ?>
-										<label class="oc-vd__chip">
+									<?php foreach ( $categories as $term ) : $is_child = (int) ( $term->depth ?? 0 ) > 0; ?>
+										<label class="oc-vd__chip<?php echo $is_child ? ' oc-vd__chip--child' : ''; ?>">
 											<input type="checkbox" name="categories[]" value="<?php echo esc_attr( $term->term_id ); ?>" <?php checked( in_array( $term->term_id, $current_cat, true ) ); ?>/>
-											<span><?php echo esc_html( $term->name ); ?></span>
+											<span><?php echo esc_html( ( $is_child ? '↳ ' : '' ) . $term->name ); ?></span>
 										</label>
 									<?php endforeach; ?>
 								</div>
+								<style>.oc-vd__chip--child{margin-left:14px;opacity:.92;}</style>
 								<span class="oc-vd__field-error" aria-live="polite"></span>
 							</div>
 

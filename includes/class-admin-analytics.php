@@ -171,7 +171,7 @@ class OC_Admin_Analytics {
 							<option value=""><?php esc_html_e( 'All categories', 'owambe-connect-core' ); ?></option>
 							<?php foreach ( $cats_filter as $term ) : ?>
 								<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $this->filters['cat'], $term->slug ); ?>>
-									<?php echo esc_html( $term->name ); ?>
+									<?php echo esc_html( str_repeat( '— ', (int) ( $term->depth ?? 0 ) ) . $term->name ); ?>
 								</option>
 							<?php endforeach; ?>
 						</select>
@@ -1094,7 +1094,7 @@ class OC_Admin_Analytics {
 						<select name="cat">
 							<option value=""><?php esc_html_e( 'All categories', 'owambe-connect-core' ); ?></option>
 							<?php foreach ( $cats_filter as $term ) : ?>
-								<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $this->filters['cat'], $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option>
+								<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $this->filters['cat'], $term->slug ); ?>><?php echo esc_html( str_repeat( '— ', (int) ( $term->depth ?? 0 ) ) . $term->name ); ?></option>
 							<?php endforeach; ?>
 						</select>
 					</label>
@@ -1305,16 +1305,22 @@ class OC_Admin_Analytics {
 
 	private function vendors_by_category() {
 		global $wpdb;
+		// P15 — child terms roll up into their parent so the donut shows one
+		// slice per top-level category. COALESCE picks the parent when the
+		// term has one; COUNT(DISTINCT) inside the group prevents vendors
+		// tagged with both parent AND child from counting twice. (One level
+		// of nesting — matching the admin UI, which offers parent > child.)
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT t.name, t.slug, COUNT(DISTINCT p.ID) as cnt
+			"SELECT COALESCE(pt.name, t.name) as name, COALESCE(pt.slug, t.slug) as slug, COUNT(DISTINCT p.ID) as cnt
 			 FROM {$wpdb->terms} t
 			 INNER JOIN {$wpdb->term_taxonomy} tt ON t.term_id = tt.term_id
 			 INNER JOIN {$wpdb->term_relationships} tr ON tt.term_taxonomy_id = tr.term_taxonomy_id
 			 INNER JOIN {$wpdb->posts} p ON tr.object_id = p.ID
+			 LEFT JOIN {$wpdb->terms} pt ON pt.term_id = tt.parent AND tt.parent > 0
 			 WHERE tt.taxonomy = %s
 			   AND p.post_type = %s
 			   AND p.post_status = %s
-			 GROUP BY t.term_id
+			 GROUP BY COALESCE(pt.term_id, t.term_id)
 			 HAVING cnt > 0
 			 ORDER BY cnt DESC",
 			OC_TAX, OC_CPT, OC_STATUS_APPROVED

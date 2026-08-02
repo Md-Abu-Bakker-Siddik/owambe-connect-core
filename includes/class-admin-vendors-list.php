@@ -155,7 +155,7 @@ class OC_Admin_Vendors_List {
 					<option value=""><?php esc_html_e( 'All categories', 'owambe-connect-core' ); ?></option>
 					<?php foreach ( $cats as $term ) : ?>
 						<option value="<?php echo esc_attr( $term->slug ); ?>" <?php selected( $filters['cat'], $term->slug ); ?>>
-							<?php echo esc_html( $term->name ); ?> (<?php echo (int) $term->count; ?>)
+							<?php echo esc_html( str_repeat( '— ', (int) ( $term->depth ?? 0 ) ) . $term->name ); ?> (<?php echo (int) $term->count; ?>)
 						</option>
 					<?php endforeach; ?>
 				</select>

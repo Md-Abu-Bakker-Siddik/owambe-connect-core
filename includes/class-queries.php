@@ -347,12 +347,53 @@ class OC_Queries {
 		] );
 	}
 
+	/**
+	 * Vendor categories in hierarchical order (P15): each parent followed by
+	 * its children, A→Z within each level, with a `depth` property (0, 1, …)
+	 * added so consumers can indent. Return shape is otherwise unchanged —
+	 * consumers that ignore depth keep working, just with tree ordering.
+	 * Orphaned children (parent deleted) are appended at depth 0 rather than
+	 * silently dropped.
+	 */
 	public static function categories_with_counts() {
-		return get_terms( [
+		$terms = get_terms( [
 			'taxonomy'   => OC_TAX,
 			'hide_empty' => false,
 			'orderby'    => 'name',
 		] );
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return [];
+		}
+
+		$roots    = [];
+		$children = [];
+		foreach ( $terms as $t ) {
+			if ( (int) $t->parent > 0 ) {
+				$children[ (int) $t->parent ][] = $t;
+			} else {
+				$roots[] = $t;
+			}
+		}
+
+		$out  = [];
+		$walk = function ( $term, $depth ) use ( &$walk, &$out, &$children ) {
+			$term->depth = $depth;
+			$out[]       = $term;
+			foreach ( $children[ (int) $term->term_id ] ?? [] as $child ) {
+				$walk( $child, $depth + 1 );
+			}
+			unset( $children[ (int) $term->term_id ] );
+		};
+		foreach ( $roots as $root ) {
+			$walk( $root, 0 );
+		}
+		foreach ( $children as $orphans ) {
+			foreach ( $orphans as $orphan ) {
+				$orphan->depth = 0;
+				$out[]         = $orphan;
+			}
+		}
+		return $out;
 	}
 
 	public static function pending_count() {

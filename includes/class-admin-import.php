@@ -1383,10 +1383,44 @@ class OC_Admin_Import {
 	 * @return int  Term ID (0 if blank / "others" or we couldn't create one).
 	 */
 	private static function resolve_category_term( $raw, $can_create, array &$created_log ) {
-		$lower = strtolower( trim( $raw ) );
+		$raw   = trim( (string) $raw );
+		$lower = strtolower( $raw );
 		if ( '' === $lower || in_array( $lower, [ 'others', 'other', 'n/a' ], true ) ) {
 			return 0;
 		}
+
+		// P15 — "Parent > Child" nests: resolve the parent first, then match
+		// the child by slug WITHIN that parent (a child slug may collide with
+		// an unrelated top-level term, so global lookups are unsafe).
+		if ( false !== strpos( $raw, '>' ) ) {
+			list( $parent_raw, $child_raw ) = array_map( 'trim', explode( '>', $raw, 2 ) );
+			$parent_id = self::resolve_category_term( $parent_raw, $can_create, $created_log );
+			if ( ! $parent_id ) {
+				return 0;
+			}
+			if ( '' === $child_raw ) {
+				return $parent_id;
+			}
+			$child_slug = sanitize_title( $child_raw );
+			$children   = get_terms( [ 'taxonomy' => OC_TAX, 'hide_empty' => false, 'parent' => $parent_id ] );
+			if ( ! is_wp_error( $children ) ) {
+				foreach ( $children as $child ) {
+					if ( $child->slug === $child_slug || sanitize_title( $child->name ) === $child_slug ) {
+						return (int) $child->term_id;
+					}
+				}
+			}
+			if ( ! $can_create ) {
+				return $parent_id; // Best effort — the vendor still lands in the parent.
+			}
+			$inserted = wp_insert_term( $child_raw, OC_TAX, [ 'parent' => $parent_id ] );
+			if ( is_wp_error( $inserted ) ) {
+				return $parent_id;
+			}
+			$created_log[] = $parent_raw . ' > ' . $child_raw;
+			return (int) $inserted['term_id'];
+		}
+
 		$slug = self::$category_map[ $lower ] ?? '';
 		if ( '' === $slug ) {
 			// Try a sanitised slug.
@@ -1395,6 +1429,18 @@ class OC_Admin_Import {
 		$term = get_term_by( 'slug', $slug, OC_TAX );
 		if ( $term && ! is_wp_error( $term ) ) {
 			return (int) $term->term_id;
+		}
+		// P15 — normalized-NAME fallback: seeded terms often have short slugs
+		// ("Cakes & Desserts" → slug `cakes`), so a slug-only lookup misses
+		// them and, worse, creates duplicates. Compare against decoded names
+		// (WP stores "&" entity-encoded) before giving up.
+		$all = get_terms( [ 'taxonomy' => OC_TAX, 'hide_empty' => false ] );
+		if ( ! is_wp_error( $all ) ) {
+			foreach ( $all as $t ) {
+				if ( sanitize_title( wp_specialchars_decode( $t->name, ENT_QUOTES ) ) === $slug ) {
+					return (int) $t->term_id;
+				}
+			}
 		}
 		if ( ! $can_create ) {
 			return 0;

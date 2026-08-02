@@ -85,7 +85,7 @@ $show_filters  = ! isset( $show_filters )  || 'yes' === $show_filters;
 					<select id="oc-f-cat" name="cat" data-oc-filter-input>
 						<option value=""><?php esc_html_e( 'All categories', 'owambe-connect-core' ); ?></option>
 						<?php foreach ( $categories as $term ) : ?>
-							<option value="<?php echo esc_attr( $term->slug ); ?>"<?php selected( $current_cat, $term->slug ); ?>><?php echo esc_html( $term->name ); ?></option>
+							<option value="<?php echo esc_attr( $term->slug ); ?>"<?php selected( $current_cat, $term->slug ); ?>><?php echo esc_html( str_repeat( '— ', (int) ( $term->depth ?? 0 ) ) . $term->name ); ?></option>
 						<?php endforeach; ?>
 					</select>
 				</div>

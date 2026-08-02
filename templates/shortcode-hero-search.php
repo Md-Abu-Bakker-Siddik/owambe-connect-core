@@ -60,7 +60,7 @@ $bg_image_url     = ! empty( $bg_image_url )     ? esc_url( $bg_image_url ) : ''
 						$glyph = ! empty( $icon['emoji'] ) ? $icon['emoji'] : '◆';
 					?>
 						<option value="<?php echo esc_attr( $term->slug ); ?>"><?php
-							echo esc_html( $glyph . '  ' . $term->name );
+							echo esc_html( $glyph . '  ' . str_repeat( '— ', (int) ( $term->depth ?? 0 ) ) . $term->name );
 						?></option>
 					<?php endforeach; ?>
 				</select>
@@ -92,7 +92,10 @@ $bg_image_url     = ! empty( $bg_image_url )     ? esc_url( $bg_image_url ) : ''
 		<div class="oc-hero__quick">
 			<span class="oc-hero__quick-label"><?php echo esc_html( $popular_label ); ?></span>
 			<?php
-			$popular = array_slice( $categories, 0, 5 );
+			// Popular pills stay top-level — subcategories belong in the select.
+			$popular = array_slice( array_values( array_filter( $categories, function ( $t ) {
+				return 0 === (int) ( $t->depth ?? 0 );
+			} ) ), 0, 5 );
 			foreach ( $popular as $term ) :
 				$url = add_query_arg( 'cat', $term->slug, $directory_action );
 				?>

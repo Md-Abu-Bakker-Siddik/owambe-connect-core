@@ -9,6 +9,12 @@ defined( 'ABSPATH' ) || exit;
 
 $terms = OC_Queries::categories_with_counts();
 if ( empty( $terms ) ) return;
+// Homepage tiles show top-level categories only (P15) — subcategories live
+// in the directory/hero selects; the directory tax_query includes children.
+$terms       = array_values( array_filter( $terms, function ( $t ) {
+	return 0 === (int) ( $t->depth ?? 0 );
+} ) );
+if ( empty( $terms ) ) return;
 $limit       = isset( $limit ) && $limit > 0 ? (int) $limit : 12;
 $terms       = array_slice( $terms, 0, $limit );
 $directory   = oc_page_url( 'vendors' );
