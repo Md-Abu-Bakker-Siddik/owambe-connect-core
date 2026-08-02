@@ -196,6 +196,14 @@ class OC_Activator {
 				'title'   => __( 'My Event', 'owambe-connect-core' ),
 				'content' => '[oc_event_editor]',
 			],
+			[
+				// P13 — posts page: content is ignored by WP; the theme's
+				// home.php renders the article grid for this page.
+				'slug'          => 'blog',
+				'title'         => __( 'Blog', 'owambe-connect-core' ),
+				'content'       => '',
+				'is_posts_page' => true,
+			],
 		];
 
 		$slug_to_id = [];
@@ -204,6 +212,11 @@ class OC_Activator {
 			$existing = get_page_by_path( $page['slug'] );
 			if ( $existing ) {
 				$slug_to_id[ $page['slug'] ] = $existing->ID;
+				// Self-heal: the blog page may pre-date P13 or the option may
+				// have been reset — (re)point page_for_posts at it.
+				if ( ! empty( $page['is_posts_page'] ) && (int) get_option( 'page_for_posts' ) !== (int) $existing->ID ) {
+					update_option( 'page_for_posts', $existing->ID );
+				}
 				continue;
 			}
 
@@ -225,6 +238,9 @@ class OC_Activator {
 				if ( ! empty( $page['is_home'] ) ) {
 					update_option( 'show_on_front', 'page' );
 					update_option( 'page_on_front', $id );
+				}
+				if ( ! empty( $page['is_posts_page'] ) ) {
+					update_option( 'page_for_posts', $id );
 				}
 			}
 		}
