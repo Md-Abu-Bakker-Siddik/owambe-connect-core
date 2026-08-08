@@ -22,6 +22,9 @@ class OC_Activator {
 		if ( class_exists( 'OC_Client' ) ) {
 			OC_Client::register_role();
 		}
+		if ( class_exists( 'OC_Moderator' ) ) {
+			OC_Moderator::register_role();
+		}
 		self::create_tables();
 		self::seed_categories();
 		if ( class_exists( 'OC_Vendor_Tags' ) ) {

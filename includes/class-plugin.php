@@ -32,6 +32,7 @@ class OC_Plugin {
 		( new OC_Geo() )->register();
 		( new OC_Legal() )->register();
 		( new OC_Consent() )->register();
+		( new OC_Moderator() )->register();
 		( new OC_Event_CPT() )->register();
 		( new OC_Event_RSVP() )->register();
 		( new OC_Event_Editor() )->register();
