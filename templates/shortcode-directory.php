@@ -78,7 +78,11 @@ $show_filters  = ! isset( $show_filters )  || 'yes' === $show_filters;
 			<div class="oc-filters__row" id="oc-filters-row">
 				<div class="oc-filters__field">
 					<label for="oc-f-search"><?php esc_html_e( 'Search', 'owambe-connect-core' ); ?></label>
-					<input id="oc-f-search" type="search" name="vendor_name" value="<?php echo esc_attr( $current_search ); ?>" placeholder="<?php esc_attr_e( 'e.g. Photography, Catering, Red Artistry', 'owambe-connect-core' ); ?>" data-oc-filter-input />
+					<div class="oc-typeahead" data-oc-typeahead data-oc-typeahead-remote="oc_vendor_suggest" data-oc-typeahead-submit="no">
+						<input id="oc-f-search" type="search" name="vendor_name" class="oc-typeahead__input" value="<?php echo esc_attr( $current_search ); ?>" placeholder="<?php esc_attr_e( 'e.g. Photography, Catering, Red Artistry', 'owambe-connect-core' ); ?>" data-oc-filter-input autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="oc-f-search-suggestions" />
+						<button type="button" class="oc-typeahead__clear" data-oc-typeahead-clear aria-label="<?php esc_attr_e( 'Clear', 'owambe-connect-core' ); ?>" hidden>&times;</button>
+						<ul id="oc-f-search-suggestions" class="oc-typeahead__list" role="listbox" hidden></ul>
+					</div>
 				</div>
 				<div class="oc-filters__field">
 					<label for="oc-f-cat"><?php esc_html_e( 'Category', 'owambe-connect-core' ); ?></label>
@@ -111,7 +115,11 @@ $show_filters  = ! isset( $show_filters )  || 'yes' === $show_filters;
 				</div>
 				<div class="oc-filters__field">
 					<label for="oc-f-city"><?php esc_html_e( 'City / area', 'owambe-connect-core' ); ?></label>
-					<input id="oc-f-city" type="text" name="city" value="<?php echo esc_attr( $current_city ); ?>" placeholder="<?php esc_attr_e( 'e.g. London', 'owambe-connect-core' ); ?>" data-oc-filter-input />
+					<div class="oc-typeahead" data-oc-typeahead data-oc-typeahead-submit="no">
+						<input id="oc-f-city" type="text" name="city" class="oc-typeahead__input" value="<?php echo esc_attr( $current_city ); ?>" placeholder="<?php esc_attr_e( 'e.g. London', 'owambe-connect-core' ); ?>" data-oc-filter-input autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="oc-f-city-suggestions" data-suggestions="<?php echo esc_attr( wp_json_encode( function_exists( 'oc_location_suggestions' ) ? oc_location_suggestions() : [] ) ); ?>" />
+						<button type="button" class="oc-typeahead__clear" data-oc-typeahead-clear aria-label="<?php esc_attr_e( 'Clear', 'owambe-connect-core' ); ?>" hidden>&times;</button>
+						<ul id="oc-f-city-suggestions" class="oc-typeahead__list" role="listbox" hidden></ul>
+					</div>
 				</div>
 				<div class="oc-filters__field oc-filters__field--distance">
 					<label for="oc-f-radius"><?php esc_html_e( 'Distance', 'owambe-connect-core' ); ?></label>

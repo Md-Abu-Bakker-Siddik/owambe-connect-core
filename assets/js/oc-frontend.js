@@ -700,3 +700,174 @@
 		bootQueryToasts();
 	}
 })();
+
+
+/* ── Typeahead component (H3) — shared by the hero, directory filters and
+   any future search input. Two modes on the same markup:
+     [data-oc-typeahead]                    → static list from data-suggestions JSON
+     [data-oc-typeahead-remote="action"]   → debounced admin-ajax suggestions
+   Matching uses the same normalization as the server (H2): lowercase, strip
+   apostrophes, punctuation → spaces — so "stoke-on" matches "Stoke on Trent".
+   Keyboard (arrows/Enter/Escape), ARIA combobox semantics, loading state,
+   free typing always allowed. data-oc-typeahead-submit="no" disables the
+   submit-on-pick behaviour. */
+(function () {
+	'use strict';
+
+	function ocNorm(s) {
+		return (s || '').toString().toLowerCase()
+			.replace(/['’`´]/g, '')
+			.replace(/[^\p{L}\p{N}]+/gu, ' ')
+			.replace(/\s+/g, ' ').trim();
+	}
+
+	function initTypeahead(box) {
+		if (box.getAttribute('data-oc-ta-ready')) { return; }
+		box.setAttribute('data-oc-ta-ready', '1');
+
+		var input = box.querySelector('.oc-typeahead__input');
+		var list  = box.querySelector('.oc-typeahead__list');
+		var clear = box.querySelector('[data-oc-typeahead-clear]');
+		if (!input || !list) { return; }
+
+		var remote  = box.getAttribute('data-oc-typeahead-remote') || '';
+		var ajaxUrl = box.getAttribute('data-ajax-url') || (window.OC_DATA && OC_DATA.ajax_url) || '/wp-admin/admin-ajax.php';
+		var submitOnPick = box.getAttribute('data-oc-typeahead-submit') !== 'no';
+
+		var suggestions = [];
+		try { suggestions = JSON.parse(input.getAttribute('data-suggestions') || '[]'); } catch (e) {}
+
+		var active = -1, matches = [], debounceTimer = null, controller = null;
+
+		function render(items, note) {
+			list.innerHTML = '';
+			matches = items;
+			active = -1;
+			if (!items.length && !note) {
+				list.hidden = true;
+				input.setAttribute('aria-expanded', 'false');
+				return;
+			}
+			var frag = document.createDocumentFragment();
+			if (note) {
+				var li = document.createElement('li');
+				li.className = 'oc-typeahead__item oc-typeahead__note';
+				li.setAttribute('aria-disabled', 'true');
+				li.textContent = note;
+				frag.appendChild(li);
+			}
+			items.forEach(function (label, i) {
+				var li = document.createElement('li');
+				li.className = 'oc-typeahead__item';
+				li.setAttribute('role', 'option');
+				li.setAttribute('data-i', i);
+				li.textContent = label;
+				frag.appendChild(li);
+			});
+			list.appendChild(frag);
+			list.hidden = false;
+			input.setAttribute('aria-expanded', 'true');
+		}
+
+		var defaults = ['London', 'Manchester', 'Birmingham', 'Edinburgh', 'Cardiff', 'Belfast']
+			.filter(function (label) { return suggestions.indexOf(label) !== -1; });
+
+		function filterStatic() {
+			var q = ocNorm(input.value);
+			if (!q) { render(defaults); return; }
+			var prefix = [], sub = [];
+			for (var i = 0; i < suggestions.length; i++) {
+				var nv = ocNorm(suggestions[i]);
+				if (nv === q) { continue; }
+				if (nv.indexOf(q) === 0) { prefix.push(suggestions[i]); }
+				else if (nv.indexOf(q) > 0) { sub.push(suggestions[i]); }
+			}
+			render(prefix.concat(sub).slice(0, 10));
+		}
+
+		function fetchRemote() {
+			var term = input.value.trim();
+			if (term.length < 2) { render([]); return; }
+			if (controller) { controller.abort(); }
+			controller = ('AbortController' in window) ? new AbortController() : null;
+			render([], '…');
+			fetch(ajaxUrl + '?action=' + encodeURIComponent(remote) + '&term=' + encodeURIComponent(term), {
+				credentials: 'same-origin',
+				signal: controller ? controller.signal : undefined
+			})
+				.then(function (r) { return r.json(); })
+				.then(function (res) {
+					var items = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+					render(items.slice(0, 8));
+				})
+				.catch(function (err) { if (!err || err.name !== 'AbortError') { render([]); } });
+		}
+
+		function refresh() {
+			if (clear) { clear.hidden = !input.value; }
+			if (remote) {
+				window.clearTimeout(debounceTimer);
+				debounceTimer = window.setTimeout(fetchRemote, 250);
+			} else {
+				filterStatic();
+			}
+		}
+
+		function pick(value) {
+			input.value = value;
+			render([]);
+			if (clear) { clear.hidden = false; }
+			if (submitOnPick) {
+				var form = input.closest('form');
+				if (form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+			} else {
+				input.focus();
+			}
+		}
+
+		function highlight(idx) {
+			list.querySelectorAll('.oc-typeahead__item[role="option"]').forEach(function (el, i) {
+				el.classList.toggle('is-active', i === idx);
+			});
+			active = idx;
+		}
+
+		input.addEventListener('input', refresh);
+		input.addEventListener('focus', refresh);
+		input.addEventListener('keydown', function (e) {
+			if (list.hidden || !matches.length) { return; }
+			if (e.key === 'ArrowDown')      { e.preventDefault(); highlight((active + 1) % matches.length); }
+			else if (e.key === 'ArrowUp')   { e.preventDefault(); highlight((active - 1 + matches.length) % matches.length); }
+			else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(matches[active]); }
+			else if (e.key === 'Escape')    { render([]); }
+		});
+		list.addEventListener('mousedown', function (e) {
+			var el = e.target.closest('.oc-typeahead__item[role="option"]');
+			if (!el) { return; }
+			e.preventDefault();
+			var i = parseInt(el.getAttribute('data-i'), 10);
+			if (!isNaN(i) && matches[i]) { pick(matches[i]); }
+		});
+		document.addEventListener('click', function (e) {
+			if (!box.contains(e.target)) { render([]); }
+		});
+		if (clear) {
+			clear.addEventListener('click', function () {
+				input.value = '';
+				clear.hidden = true;
+				render([]);
+				input.focus();
+			});
+			if (input.value) { clear.hidden = false; }
+		}
+	}
+
+	function bootTypeaheads() {
+		document.querySelectorAll('[data-oc-typeahead]').forEach(initTypeahead);
+	}
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', bootTypeaheads);
+	} else {
+		bootTypeaheads();
+	}
+})();

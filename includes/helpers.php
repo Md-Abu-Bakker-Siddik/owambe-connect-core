@@ -82,6 +82,19 @@ function oc_vendor_fields() {
 }
 
 /**
+ * Canonical location suggestion list for every typeahead (H3): the 4 home
+ * countries + 9 England regions + 75 gov.uk cities — the SAME strings that
+ * are saved into `_oc_location`, so a picked suggestion always LIKE-matches.
+ */
+function oc_location_suggestions() {
+	return array_values( array_unique( array_merge(
+		array_values( oc_country_options() ),
+		oc_region_options(),
+		oc_city_options()
+	) ) );
+}
+
+/**
  * Normalize a location string for search matching (H2, Aug 2026).
  *
  * Lowercases, strips apostrophes (so "King's Lynn" matches "Kings Lynn"),

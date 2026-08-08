@@ -28,6 +28,10 @@ class OC_Shortcodes {
 		add_shortcode( 'oc_premium_collection',   [ $this, 'premium_collection' ] );
 		add_shortcode( 'oc_blog_carousel',        [ $this, 'blog_carousel' ] );
 		add_shortcode( 'oc_checklists',           [ $this, 'checklists' ] );
+
+		// H3 — vendor business-name suggestions for the search typeahead.
+		add_action( 'wp_ajax_oc_vendor_suggest',        [ $this, 'vendor_suggest' ] );
+		add_action( 'wp_ajax_nopriv_oc_vendor_suggest', [ $this, 'vendor_suggest' ] );
 		add_shortcode( 'oc_directory',            [ $this, 'directory' ] );
 		add_shortcode( 'oc_vendor_profile',       [ $this, 'vendor_profile' ] );
 		add_shortcode( 'oc_register_form',        [ $this, 'register_form' ] );
@@ -401,6 +405,50 @@ class OC_Shortcodes {
 		$atts['count'] = max( 1, min( 24, (int) $atts['count'] ) );
 		$atts['query'] = OC_Queries::latest_posts( $atts['count'] );
 		return oc_get_template( 'shortcode-blog-carousel.php', $atts );
+	}
+
+	/**
+	 * H3 — business-name suggestions for the directory search typeahead.
+	 * Public read-only endpoint: approved vendors only, capped at 8, gently
+	 * per-IP rate-limited (no nonce — public pages may be full-page cached).
+	 */
+	public function vendor_suggest() {
+		$term = isset( $_GET['term'] ) ? sanitize_text_field( wp_unslash( $_GET['term'] ) ) : '';
+		if ( mb_strlen( $term ) < 2 ) {
+			wp_send_json_success( [] );
+		}
+
+		// 30 lookups per IP per minute is plenty for humans typing.
+		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+		$key = 'oc_vsuggest_' . md5( $ip );
+		$hits = (int) get_transient( $key );
+		if ( $hits >= 30 ) {
+			wp_send_json_success( [] );
+		}
+		set_transient( $key, $hits + 1, MINUTE_IN_SECONDS );
+
+		global $wpdb;
+		$like = '%' . $wpdb->esc_like( $term ) . '%';
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT p.post_title, bn.meta_value AS business_name
+			 FROM {$wpdb->posts} p
+			 LEFT JOIN {$wpdb->postmeta} bn ON bn.post_id = p.ID AND bn.meta_key = '_oc_business_name'
+			 WHERE p.post_type = %s AND p.post_status = %s
+			   AND ( p.post_title LIKE %s OR bn.meta_value LIKE %s )
+			 ORDER BY p.post_title ASC
+			 LIMIT 8",
+			OC_CPT, OC_STATUS_APPROVED, $like, $like
+		) );
+
+		$names = [];
+		foreach ( (array) $rows as $row ) {
+			$name = '' !== trim( (string) $row->business_name ) ? $row->business_name : $row->post_title;
+			$name = wp_specialchars_decode( wp_strip_all_tags( (string) $name ), ENT_QUOTES );
+			if ( '' !== $name && ! in_array( $name, $names, true ) ) {
+				$names[] = $name;
+			}
+		}
+		wp_send_json_success( $names );
 	}
 
 	/**
