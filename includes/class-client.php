@@ -272,8 +272,13 @@ class OC_Client {
 			self::bounce_to_login( __( 'We could not create your account. Please try again.', 'owambe-connect-core' ), 'register' );
 		}
 
-		// Record the T&C acceptance (timestamp) for compliance.
-		update_user_meta( $user_id, '_oc_terms_accepted', time() );
+		// Record versioned consent (client documents, native signup). Also
+		// keeps the legacy _oc_terms_accepted timestamp for compatibility.
+		if ( class_exists( 'OC_Consent' ) ) {
+			OC_Consent::record( $user_id, 'client', 'native' );
+		} else {
+			update_user_meta( $user_id, '_oc_terms_accepted', time() );
+		}
 
 		do_action( 'oc_after_client_registered', $user_id );
 		if ( class_exists( 'OC_Mail' ) && method_exists( 'OC_Mail', 'client_welcome' ) ) {

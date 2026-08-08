@@ -650,6 +650,16 @@ class OC_Dashboard {
 		if ( '' === $name || ! is_email( $email ) || strlen( $message ) < 10 ) {
 			$this->redirect( $ref, __( 'Please fill in all fields with a complete message.', 'owambe-connect-core' ) );
 		}
+		// H4 — length caps + URL rejection (name never needs a link; the
+		// message body may reference a site but must not carry raw links that
+		// could be rendered elsewhere — reject to stay consistent with the FAB).
+		$guard = oc_form_guard( [
+			__( 'Name', 'owambe-connect-core' )    => [ 'value' => $name,    'max' => 120,  'no_url' => true ],
+			__( 'Message', 'owambe-connect-core' ) => [ 'value' => $message, 'max' => 2000, 'no_url' => true ],
+		] );
+		if ( '' !== $guard ) {
+			$this->redirect( $ref, $guard );
+		}
 
 		// Persist every contact-form submission so it's never lost even if
 		// SMTP drops the notification email silently.
@@ -812,6 +822,17 @@ class OC_Dashboard {
 
 		if ( '' === $data['name'] || ! is_email( $data['email'] ) || strlen( $data['description'] ) < 10 ) {
 			$this->redirect( $ref, __( 'Please fill in your name, a valid email, and a short description.', 'owambe-connect-core' ) );
+		}
+		// H4 — length caps + URL rejection in fields where links are never
+		// legitimate (this is the vector the spam submission used).
+		$guard = oc_form_guard( [
+			__( 'Name', 'owambe-connect-core' )        => [ 'value' => $data['name'],        'max' => 120,  'no_url' => true ],
+			__( 'Location', 'owambe-connect-core' )     => [ 'value' => $data['location'],    'max' => 120,  'no_url' => true ],
+			__( 'Phone', 'owambe-connect-core' )        => [ 'value' => $data['phone'],       'max' => 40,   'no_url' => true ],
+			__( 'Description', 'owambe-connect-core' )  => [ 'value' => $data['description'], 'max' => 2000, 'no_url' => true ],
+		] );
+		if ( '' !== $guard ) {
+			$this->redirect( $ref, $guard );
 		}
 		if ( $ip ) set_transient( $rate_key, 1, MINUTE_IN_SECONDS );
 

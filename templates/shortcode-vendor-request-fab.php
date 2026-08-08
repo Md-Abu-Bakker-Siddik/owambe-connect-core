@@ -97,7 +97,7 @@ $cities = function_exists( 'oc_city_options' ) ? oc_city_options() : [];
 				</div>
 				<div class="oc-vrq-field oc-vrq-field--full">
 					<label for="oc-vrq-desc"><?php esc_html_e( 'What kind of vendor are you looking for?', 'owambe-connect-core' ); ?> <span class="oc-req">*</span></label>
-					<textarea id="oc-vrq-desc" name="description" rows="3" required minlength="10" placeholder="<?php esc_attr_e( 'e.g. South Asian catering for 200 people, halal, vegetarian options…', 'owambe-connect-core' ); ?>"></textarea>
+					<textarea id="oc-vrq-desc" name="description" rows="3" required minlength="10" maxlength="2000" placeholder="<?php esc_attr_e( 'e.g. South Asian catering for 200 people, halal, vegetarian options…', 'owambe-connect-core' ); ?>"></textarea>
 				</div>
 			</div>
 

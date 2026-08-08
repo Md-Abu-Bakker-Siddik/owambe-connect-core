@@ -84,6 +84,14 @@ class OC_Settings {
 			// Legal — client-facing Terms & Conditions URL used by the client
 			// signup/login consent links. Empty falls back to the /terms/ page.
 			'client_terms_url'          => '',
+			// H5 — optional overrides for the other legal documents; each
+			// empty value falls back to its page slug (see OC_Legal::url()).
+			'vendor_terms_url'          => '',
+			'privacy_url'               => '',
+			'community_guidelines_url'  => '',
+			// H5/H6 — Effective Date printed on the legal documents (client
+			// confirmed 2026-08-04). Empty falls back to OC_Legal default.
+			'legal_effective_date'      => '1 June 2026',
 
 			// Website Safety — optional intro/notice shown atop the [oc_safety_info]
 			// page. Empty shows just the default safety tips.
@@ -231,6 +239,14 @@ class OC_Settings {
 
 		// Legal.
 		$out['client_terms_url'] = isset( $input['client_terms_url'] ) ? esc_url_raw( trim( (string) $input['client_terms_url'] ) ) : '';
+		// H5 — preserve-when-absent so the general-section save doesn't wipe
+		// URLs set from a different settings tab.
+		foreach ( [ 'vendor_terms_url', 'privacy_url', 'community_guidelines_url' ] as $lk ) {
+			$out[ $lk ] = isset( $input[ $lk ] ) ? esc_url_raw( trim( (string) $input[ $lk ] ) ) : ( $out[ $lk ] ?? '' );
+		}
+		$out['legal_effective_date'] = isset( $input['legal_effective_date'] )
+			? sanitize_text_field( trim( (string) $input['legal_effective_date'] ) )
+			: ( $out['legal_effective_date'] ?? '1 June 2026' );
 
 		// Website safety — allow basic HTML (links/formatting) in the intro notice.
 		$out['safety_intro'] = isset( $input['safety_intro'] ) ? wp_kses_post( trim( (string) $input['safety_intro'] ) ) : '';
@@ -437,6 +453,26 @@ class OC_Settings {
 							<th scope="row"><label for="oc-cterms"><?php esc_html_e( 'Client Terms &amp; Conditions URL', 'owambe-connect-core' ); ?></label></th>
 							<td><input id="oc-cterms" type="url" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[client_terms_url]" value="<?php echo esc_attr( $s['client_terms_url'] ); ?>" placeholder="<?php echo esc_attr( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : home_url( '/terms/' ) ); ?>"/>
 								<p class="description"><?php esc_html_e( 'The client signup/login "I accept the Terms & Conditions" links point here. Leave blank to use the built-in /terms/ page.', 'owambe-connect-core' ); ?></p></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="oc-vterms"><?php esc_html_e( 'Vendor Terms &amp; Conditions URL', 'owambe-connect-core' ); ?></label></th>
+							<td><input id="oc-vterms" type="url" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[vendor_terms_url]" value="<?php echo esc_attr( $s['vendor_terms_url'] ?? '' ); ?>" placeholder="<?php echo esc_attr( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : home_url( '/terms/' ) ); ?>"/>
+								<p class="description"><?php esc_html_e( 'Vendor signup consent links point here. Leave blank to use the existing /terms/ page (confirmed by the client as the Vendor T&C).', 'owambe-connect-core' ); ?></p></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="oc-priv"><?php esc_html_e( 'Privacy Policy URL', 'owambe-connect-core' ); ?></label></th>
+							<td><input id="oc-priv" type="url" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[privacy_url]" value="<?php echo esc_attr( $s['privacy_url'] ?? '' ); ?>" placeholder="<?php echo esc_attr( function_exists( 'oc_page_url' ) ? oc_page_url( 'privacy' ) : home_url( '/privacy/' ) ); ?>"/>
+								<p class="description"><?php esc_html_e( 'Shared by clients and vendors. Leave blank to use the /privacy/ page.', 'owambe-connect-core' ); ?></p></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="oc-cg"><?php esc_html_e( 'Community Guidelines URL', 'owambe-connect-core' ); ?></label></th>
+							<td><input id="oc-cg" type="url" class="regular-text code" name="<?php echo esc_attr( self::OPTION ); ?>[community_guidelines_url]" value="<?php echo esc_attr( $s['community_guidelines_url'] ?? '' ); ?>" placeholder="<?php echo esc_attr( home_url( '/community-guidelines/' ) ); ?>"/>
+								<p class="description"><?php esc_html_e( 'Shared by clients and vendors. Leave blank to use the /community-guidelines/ page.', 'owambe-connect-core' ); ?></p></td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="oc-ledate"><?php esc_html_e( 'Legal Effective Date', 'owambe-connect-core' ); ?></label></th>
+							<td><input id="oc-ledate" type="text" class="regular-text" name="<?php echo esc_attr( self::OPTION ); ?>[legal_effective_date]" value="<?php echo esc_attr( $s['legal_effective_date'] ?? '' ); ?>" placeholder="1 June 2026"/>
+								<p class="description"><?php esc_html_e( 'Printed as the "Effective Date" on the Client Terms, Privacy Policy and Community Guidelines drafts. Re-seed the legal drafts after changing this.', 'owambe-connect-core' ); ?></p></td>
 						</tr>
 				</tbody></table>
 

@@ -84,11 +84,12 @@ $redirect_url = ! empty( $redirect_url ) ? $redirect_url : '';
 								/* translators: 1: Terms link, 2: Privacy link */
 								printf(
 									wp_kses(
-										__( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Terms</a> and <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a>, and confirm I\'m authorised to represent this business.', 'owambe-connect-core' ),
+										__( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Vendor Terms and Conditions</a>, <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a> and <a href="%3$s" target="_blank" rel="noopener">Community Guidelines</a>, and confirm I\'m authorised to represent this business.', 'owambe-connect-core' ),
 										[ 'a' => [ 'href' => [], 'target' => [], 'rel' => [] ] ]
 									),
-									esc_url( oc_page_url( 'terms' ) ),
-									esc_url( oc_page_url( 'privacy' ) )
+									esc_url( oc_legal_url( 'vendor-terms' ) ),
+									esc_url( oc_legal_url( 'privacy' ) ),
+									esc_url( oc_legal_url( 'community-guidelines' ) )
 								);
 								?>
 							</span>

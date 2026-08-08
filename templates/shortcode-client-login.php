@@ -113,11 +113,12 @@ $post_url = admin_url( 'admin-post.php' );
 									/* translators: 1: Terms link, 2: Privacy link */
 									printf(
 										wp_kses(
-											__( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a>.', 'owambe-connect-core' ),
+											__( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Client Terms and Conditions</a>, <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a> and <a href="%3$s" target="_blank" rel="noopener">Community Guidelines</a>.', 'owambe-connect-core' ),
 											[ 'a' => [ 'href' => [], 'target' => [], 'rel' => [] ] ]
 										),
-										esc_url( oc_client_terms_url() ),
-										esc_url( oc_page_url( 'privacy' ) )
+										esc_url( oc_legal_url( 'client-terms' ) ),
+										esc_url( oc_legal_url( 'privacy' ) ),
+										esc_url( oc_legal_url( 'community-guidelines' ) )
 									);
 									?>
 								</span>

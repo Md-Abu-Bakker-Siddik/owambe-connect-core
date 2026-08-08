@@ -31,8 +31,11 @@ $columns            = ! empty( $columns ) ? $columns : [
 	[
 		'heading' => __( 'Legal', 'owambe-connect-core' ),
 		'links'   => [
-			[ 'label' => __( 'Privacy', 'owambe-connect-core' ), 'icon' => 'shield', 'url' => [ 'url' => function_exists( 'oc_page_url' ) ? oc_page_url( 'privacy' ) : '#' ] ],
-			[ 'label' => __( 'Terms',   'owambe-connect-core' ), 'icon' => 'file',   'url' => [ 'url' => function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' )   : '#' ] ],
+			// H5 — full public legal set; client & vendor terms are separate.
+			[ 'label' => __( 'Privacy Policy',       'owambe-connect-core' ), 'icon' => 'shield', 'url' => [ 'url' => function_exists( 'oc_legal_url' ) ? oc_legal_url( 'privacy' )              : '#' ] ],
+			[ 'label' => __( 'Community Guidelines', 'owambe-connect-core' ), 'icon' => 'groups', 'url' => [ 'url' => function_exists( 'oc_legal_url' ) ? oc_legal_url( 'community-guidelines' ) : '#' ] ],
+			[ 'label' => __( 'Client Terms',         'owambe-connect-core' ), 'icon' => 'file',   'url' => [ 'url' => function_exists( 'oc_legal_url' ) ? oc_legal_url( 'client-terms' )         : '#' ] ],
+			[ 'label' => __( 'Vendor Terms',         'owambe-connect-core' ), 'icon' => 'file',   'url' => [ 'url' => function_exists( 'oc_legal_url' ) ? oc_legal_url( 'vendor-terms' )         : '#' ] ],
 		],
 	],
 ];

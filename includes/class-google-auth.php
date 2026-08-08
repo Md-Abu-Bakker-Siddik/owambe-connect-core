@@ -169,7 +169,12 @@ class OC_Google_Auth {
 					$this->fail();
 				}
 				update_user_meta( $user_id, self::META_SUB, $sub );
-				update_user_meta( $user_id, '_oc_terms_accepted', time() );
+				// Record versioned consent (client documents, Google signup).
+				if ( class_exists( 'OC_Consent' ) ) {
+					OC_Consent::record( $user_id, 'client', 'google' );
+				} else {
+					update_user_meta( $user_id, '_oc_terms_accepted', time() );
+				}
 
 				do_action( 'oc_after_client_registered', $user_id );
 
@@ -468,11 +473,13 @@ class OC_Google_Auth {
 	/**
 	 * GIS button markup. Prints the loader script once per page.
 	 *
-	 * @param string $redirect_to  Where to send the user after sign-in
-	 *                             (validated via wp_validate_redirect).
+	 * @param string $redirect_to   Where to send the user after sign-in
+	 *                              (validated via wp_validate_redirect).
+	 * @param string $account_type  'client' (default) or 'vendor' — decides
+	 *                              which Terms document the consent gate links.
 	 * @return string
 	 */
-	public static function button_html( $redirect_to = '' ) {
+	public static function button_html( $redirect_to = '', $account_type = 'client' ) {
 		if ( ! self::is_configured() ) {
 			if ( current_user_can( 'manage_options' ) ) {
 				return '<p class="oc-google-signin oc-google-signin--note" style="margin:12px 0;padding:10px 14px;border:1px dashed #c9a86a;border-radius:8px;background:#fdf8ef;color:#6b5a3e;font-size:14px;">'
@@ -489,13 +496,24 @@ class OC_Google_Auth {
 		// (?action=…) fails. The handler routes users by role after login.
 		$login_uri = rest_url( 'oc/v1/google-login' );
 
-		$terms_url   = function_exists( 'oc_client_terms_url' ) ? oc_client_terms_url() : ( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : '#' );
-		$privacy_url = function_exists( 'oc_page_url' ) ? oc_page_url( 'privacy' ) : '#';
-		// Terms gate: the GIS button stays disabled until the visitor accepts the T&C.
+		// H5 — audience-correct legal links; the gate shows the right Terms
+		// document plus the shared Privacy Policy and Community Guidelines.
+		$terms_key   = 'vendor' === $account_type ? 'vendor-terms' : 'client-terms';
+		$terms_label = 'vendor' === $account_type
+			? __( 'Vendor Terms and Conditions', 'owambe-connect-core' )
+			: __( 'Client Terms and Conditions', 'owambe-connect-core' );
+		$terms_url   = function_exists( 'oc_legal_url' ) ? oc_legal_url( $terms_key ) : ( function_exists( 'oc_page_url' ) ? oc_page_url( 'terms' ) : '#' );
+		$privacy_url = function_exists( 'oc_legal_url' ) ? oc_legal_url( 'privacy' ) : ( function_exists( 'oc_page_url' ) ? oc_page_url( 'privacy' ) : '#' );
+		$cg_url      = function_exists( 'oc_legal_url' ) ? oc_legal_url( 'community-guidelines' ) : '#';
+		// Terms gate: the GIS button stays disabled until the visitor accepts.
 		// Ticking the box also drops a short-lived cookie that handle() re-checks
 		// server-side before creating a brand-new account.
 		$html  = '<div class="oc-google-signin oc-google-gate oc-google-gate--locked" data-oc-google-gate>';
-		$html .= '<label class="oc-checkbox oc-google-gate__terms"><input type="checkbox" data-oc-google-terms /><span>' . wp_kses( sprintf( __( 'I accept the <a href="%1$s" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a>.', 'owambe-connect-core' ), esc_url( $terms_url ), esc_url( $privacy_url ) ), [ 'a' => [ 'href' => [], 'target' => [], 'rel' => [] ] ] ) . '</span></label>';
+		$html .= '<label class="oc-checkbox oc-google-gate__terms"><input type="checkbox" data-oc-google-terms /><span>' . wp_kses( sprintf(
+			/* translators: 1: Terms link, 2: Terms label, 3: Privacy link, 4: Community Guidelines link */
+			__( 'I accept the <a href="%1$s" target="_blank" rel="noopener">%2$s</a>, <a href="%3$s" target="_blank" rel="noopener">Privacy Policy</a> and <a href="%4$s" target="_blank" rel="noopener">Community Guidelines</a>.', 'owambe-connect-core' ),
+			esc_url( $terms_url ), esc_html( $terms_label ), esc_url( $privacy_url ), esc_url( $cg_url )
+		), [ 'a' => [ 'href' => [], 'target' => [], 'rel' => [] ] ] ) . '</span></label>';
 		$html .= '<div class="oc-google-gate__btn">';
 		// ux_mode=redirect is REQUIRED with data-login_uri: it makes GSI do a
 		// full-page redirect that POSTs the credential to login_uri. Without it

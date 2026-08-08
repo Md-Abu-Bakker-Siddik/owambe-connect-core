@@ -51,6 +51,13 @@ class OC_Registration {
 		if ( strlen( $password ) < 8 ) $errors[] = __( 'Password must be at least 8 characters.', 'owambe-connect-core' );
 		if ( '' === $business_name )   $errors[] = __( 'Business name is required.', 'owambe-connect-core' );
 		if ( ! $consent )              $errors[] = __( 'Please accept the terms to continue.', 'owambe-connect-core' );
+		// H4 — a business name is never a URL; reject links + cap length.
+		$bn_guard = oc_form_guard( [
+			__( 'Business name', 'owambe-connect-core' ) => [ 'value' => $business_name, 'max' => 150, 'no_url' => true ],
+		] );
+		if ( '' !== $bn_guard ) {
+			$errors[] = $bn_guard;
+		}
 
 		if ( $email && ( email_exists( $email ) || username_exists( $email ) ) ) {
 			$errors[] = __( 'An account with this email already exists. Please log in instead.', 'owambe-connect-core' );
@@ -92,6 +99,12 @@ class OC_Registration {
 
 		wp_set_current_user( $user_id );
 		wp_set_auth_cookie( $user_id, true );
+
+		// Record versioned consent (vendor documents, native signup). The
+		// consent checkbox was already validated server-side above.
+		if ( class_exists( 'OC_Consent' ) ) {
+			OC_Consent::record( $user_id, 'vendor', 'native' );
+		}
 
 		do_action( 'oc_after_vendor_registered', $post_id, $user_id );
 

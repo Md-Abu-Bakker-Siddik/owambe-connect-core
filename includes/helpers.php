@@ -742,6 +742,67 @@ function oc_verify_recaptcha( $token ) {
 	return $score >= $threshold;
 }
 
+/**
+ * True when a string contains anything that looks like a URL or link — for
+ * rejecting spam in fields where URLs are never legitimate (name, location,
+ * plain-text descriptions). Catches http/https/ftp, obfuscated schemes
+ * ("hxxp", "h t t p", "http[:]//"), bare "www." hosts, common TLD patterns
+ * like "example.com/path", and markdown/BBCode link syntax. (H4)
+ */
+function oc_contains_url( $value ) {
+	$value = (string) $value;
+	if ( '' === $value ) {
+		return false;
+	}
+	// Collapse spacing/zero-width tricks used to slip URLs past filters:
+	// "h t t p", "example . com", inserted zero-width chars.
+	$flat = preg_replace( '/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $value );
+	$flat = mb_strtolower( $flat );
+	// De-obfuscate the classic dot-disguises: "spam[.]top", "spam(dot)top",
+	// "spam dot top" all become "spam.top" before matching.
+	$flat = preg_replace( '/\s*[\[\(\{]\s*(?:dot|\.)\s*[\]\)\}]\s*/u', '.', $flat );
+	$flat = preg_replace( '/\s+dot\s+/u', '.', $flat );
+	$despaced = preg_replace( '/\s+/', '', $flat );
+
+	$patterns = [
+		'~h\W*t\W*t\W*p~',            // http / hxxp / h.t.t.p / h t t p
+		'~ftp\W*://~',
+		'~://~',                      // any scheme://
+		'~www\.[a-z0-9-]~',           // www.something
+		'~\[url[=\]]~',               // BBCode [url]
+		'~\]\(\s*[a-z]+:~',           // markdown [text](scheme:
+		'~[a-z0-9-]+\.(?:com|net|org|info|xyz|ru|top|io|co|uk|de|cn|biz|link|click|shop|online|site)(?:[/?#]|$)~',
+	];
+	foreach ( $patterns as $re ) {
+		if ( preg_match( $re, $flat ) || preg_match( $re, $despaced ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Guard a batch of public-form fields (H4). Returns an error string when a
+ * field is too long or contains a URL where one isn't allowed; '' when clean.
+ *
+ * @param array $fields  [ label => [ 'value' => string, 'max' => int, 'no_url' => bool ] ]
+ */
+function oc_form_guard( array $fields ) {
+	foreach ( $fields as $label => $rule ) {
+		$value = (string) ( $rule['value'] ?? '' );
+		$max   = (int) ( $rule['max'] ?? 0 );
+		if ( $max > 0 && mb_strlen( $value ) > $max ) {
+			/* translators: %s: field label */
+			return sprintf( __( 'The %s is too long.', 'owambe-connect-core' ), mb_strtolower( $label ) );
+		}
+		if ( ! empty( $rule['no_url'] ) && oc_contains_url( $value ) ) {
+			/* translators: %s: field label */
+			return sprintf( __( 'Please remove links from the %s field.', 'owambe-connect-core' ), mb_strtolower( $label ) );
+		}
+	}
+	return '';
+}
+
 /** True if both reCAPTCHA keys are filled in. */
 function oc_recaptcha_enabled() {
 	return (string) oc_get_setting( 'recaptcha_site_key', '' ) !== ''
@@ -826,11 +887,29 @@ function oc_page_url( $slug ) {
  * @return string
  */
 function oc_client_terms_url() {
+	if ( class_exists( 'OC_Legal' ) ) {
+		return OC_Legal::url( 'client-terms' );
+	}
 	$url = (string) oc_get_setting( 'client_terms_url', '' );
 	if ( '' !== $url ) {
 		return $url;
 	}
 	return oc_page_url( 'terms' );
+}
+
+/**
+ * H5 — audience-correct legal URL by canonical key. Thin wrapper over
+ * OC_Legal::url() with a safe fallback if the class isn't loaded yet.
+ *
+ * @param string $key client-terms|vendor-terms|privacy|community-guidelines
+ * @return string
+ */
+function oc_legal_url( $key ) {
+	if ( class_exists( 'OC_Legal' ) ) {
+		return OC_Legal::url( $key );
+	}
+	$map = [ 'client-terms' => 'terms', 'vendor-terms' => 'terms', 'privacy' => 'privacy', 'community-guidelines' => 'community-guidelines' ];
+	return oc_page_url( $map[ $key ] ?? 'terms' );
 }
 
 /**
