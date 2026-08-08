@@ -82,6 +82,24 @@ function oc_vendor_fields() {
 }
 
 /**
+ * Normalize a location string for search matching (H2, Aug 2026).
+ *
+ * Lowercases, strips apostrophes (so "King's Lynn" matches "Kings Lynn"),
+ * turns hyphens/en-em dashes/commas/periods/slashes/ampersands and any other
+ * punctuation into spaces, and collapses whitespace — so
+ * "Stoke-on-Trent" ≡ "Stoke on Trent" ≡ "STOKE ON TRENT".
+ * Display values are never touched; this feeds the `_oc_location_norm`
+ * shadow meta and query-side comparisons only.
+ */
+function oc_normalize_location( $value ) {
+	$value = wp_specialchars_decode( (string) $value, ENT_QUOTES );
+	$value = mb_strtolower( $value );
+	$value = str_replace( [ "'", '’', '`', '´' ], '', $value );
+	$value = preg_replace( '/[^\p{L}\p{N}]+/u', ' ', $value );
+	return trim( preg_replace( '/\s+/', ' ', $value ) );
+}
+
+/**
  * Curated planning-resource downloads (P14) — set in Vendors → Planning
  * Resources. Only rows with a file URL are returned.
  *

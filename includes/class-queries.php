@@ -43,20 +43,25 @@ class OC_Queries {
 		$search_term = sanitize_text_field( $a['search'] );
 		$meta_query = [];
 
-		// Build meta_query for location/city filtering.
-		if ( ! empty( $a['location'] ) ) {
-			$meta_query[] = [
-				'key'     => '_oc_location',
-				'value'   => sanitize_text_field( $a['location'] ),
-				'compare' => 'LIKE',
-			];
-		}
-		if ( ! empty( $a['city'] ) ) {
-			$meta_query[] = [
-				'key'     => '_oc_location',
-				'value'   => sanitize_text_field( $a['city'] ),
-				'compare' => 'LIKE',
-			];
+		// Location/city filtering (H2): match the normalized shadow meta so
+		// "Stoke-on-Trent" ≡ "Stoke on Trent" ≡ "STOKE ON TRENT". The legacy
+		// raw LIKE stays as an OR-fallback for any vendor the backfill hasn't
+		// reached yet; exact normalized substring only — no fuzzy matching.
+		foreach ( [ 'location', 'city' ] as $loc_key ) {
+			if ( empty( $a[ $loc_key ] ) ) {
+				continue;
+			}
+			$raw  = sanitize_text_field( $a[ $loc_key ] );
+			$norm = function_exists( 'oc_normalize_location' ) ? oc_normalize_location( $raw ) : '';
+			if ( '' !== $norm ) {
+				$meta_query[] = [
+					'relation' => 'OR',
+					[ 'key' => '_oc_location_norm', 'value' => $norm, 'compare' => 'LIKE' ],
+					[ 'key' => '_oc_location',      'value' => $raw,  'compare' => 'LIKE' ],
+				];
+			} else {
+				$meta_query[] = [ 'key' => '_oc_location', 'value' => $raw, 'compare' => 'LIKE' ];
+			}
 		}
 		// Cultural specialty — now term-backed: an indexed tax_query on the
 		// `cultural_specialty` taxonomy (dual-write keeps terms == meta).

@@ -26,7 +26,12 @@ class OC_Geo {
 
 	const META_LAT = '_oc_lat';
 	const META_LNG = '_oc_lng';
+	const META_LOC_NORM = '_oc_location_norm';
 	const GEOCODE_TTL = 30 * DAY_IN_SECONDS;
+
+	/** Bump to re-run the location-norm backfill once after deploy. */
+	const NORM_BACKFILL_VERSION = 1;
+	const NORM_BACKFILL_OPTION  = 'oc_location_norm_backfilled';
 
 	public function register() {
 		add_action( 'oc_after_vendor_updated',    [ __CLASS__, 'write_coords' ] );
@@ -40,6 +45,10 @@ class OC_Geo {
 		add_action( 'added_post_meta',   [ __CLASS__, 'on_location_meta_change' ], 10, 3 );
 		add_action( 'updated_post_meta', [ __CLASS__, 'on_location_meta_change' ], 10, 3 );
 		add_action( 'deleted_post_meta', [ __CLASS__, 'on_location_meta_change' ], 10, 3 );
+
+		// H2 — one-time search-normalization backfill for existing vendors
+		// (option-versioned; runs on the first wp-admin load after deploy).
+		add_action( 'admin_init', [ __CLASS__, 'maybe_backfill_location_norm' ] );
 	}
 
 	/**
@@ -207,6 +216,8 @@ class OC_Geo {
 	/**
 	 * Save-path writer (hooked). Deletes coords when unresolvable so a
 	 * vendor who removes their location drops out of radius results.
+	 * Also refreshes the search-normalization shadow meta (H2) — same
+	 * triggers, same lifecycle.
 	 */
 	public static function write_coords( $vendor_id ) {
 		$vendor_id = (int) $vendor_id;
@@ -221,6 +232,41 @@ class OC_Geo {
 			delete_post_meta( $vendor_id, self::META_LAT );
 			delete_post_meta( $vendor_id, self::META_LNG );
 		}
+		self::write_location_norm( $vendor_id );
+	}
+
+	/**
+	 * H2 — normalized copy of the `_oc_location` search summary, so
+	 * punctuation/case differences can never break location matching.
+	 */
+	public static function write_location_norm( $vendor_id ) {
+		$norm = oc_normalize_location( get_post_meta( $vendor_id, '_oc_location', true ) );
+		if ( '' !== $norm ) {
+			update_post_meta( $vendor_id, self::META_LOC_NORM, $norm );
+		} else {
+			delete_post_meta( $vendor_id, self::META_LOC_NORM );
+		}
+	}
+
+	/**
+	 * One-time (versioned) backfill of `_oc_location_norm` for the back
+	 * catalogue. ~1 quick meta write per vendor; guarded so it runs once.
+	 */
+	public static function maybe_backfill_location_norm() {
+		if ( (int) get_option( self::NORM_BACKFILL_OPTION, 0 ) >= self::NORM_BACKFILL_VERSION ) {
+			return;
+		}
+		$ids = get_posts( [
+			'post_type'     => OC_CPT,
+			'post_status'   => array_values( array_diff( array_keys( get_post_stati() ), [ 'trash', 'auto-draft', 'inherit' ] ) ),
+			'numberposts'   => -1,
+			'fields'        => 'ids',
+			'no_found_rows' => true,
+		] );
+		foreach ( $ids as $id ) {
+			self::write_location_norm( $id );
+		}
+		update_option( self::NORM_BACKFILL_OPTION, self::NORM_BACKFILL_VERSION );
 	}
 
 	/**
