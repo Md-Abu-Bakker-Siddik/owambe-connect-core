@@ -261,17 +261,37 @@ $resources_url = oc_page_url( 'planning-resources' );
 				</section>
 
 				<!-- ============== My event page ============== -->
+				<?php
+				// Event system is live (Week 3). Link to the editor at /my-event/;
+				// show Create vs Manage based on whether the client already
+				// started one, and expose the public share link when published.
+				$event_editor_url = function_exists( 'oc_page_url' ) ? oc_page_url( 'my-event' ) : home_url( '/my-event/' );
+				$my_event         = function_exists( 'oc_get_current_event_post' ) ? oc_get_current_event_post() : null;
+				$has_event        = $my_event instanceof WP_Post;
+				?>
 				<section class="oc-vd__panel" data-oc-panel="event">
 					<header class="oc-vd__panel-head">
 						<h1><?php esc_html_e( 'My event page', 'owambe-connect-core' ); ?></h1>
 						<p><?php esc_html_e( 'A shareable page for your big day.', 'owambe-connect-core' ); ?></p>
 					</header>
 
-					<div class="oc-cd__empty">
-						<span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
-						<h2><?php esc_html_e( 'Your event page is coming soon', 'owambe-connect-core' ); ?></h2>
-						<p><?php esc_html_e( 'Soon you\'ll be able to build a beautiful page for your event — with your story, schedule, RSVP and gift registry — and share it with guests on WhatsApp.', 'owambe-connect-core' ); ?></p>
-					</div>
+					<?php if ( $has_event ) : ?>
+						<div class="oc-vd__card">
+							<h2 style="margin-top:0;"><?php echo esc_html( get_the_title( $my_event ) ?: __( 'Your event', 'owambe-connect-core' ) ); ?></h2>
+							<p style="color:#6B6361;margin:0 0 16px;"><?php esc_html_e( 'Edit your story, schedule, RSVP and gift registry, then share the page with your guests.', 'owambe-connect-core' ); ?></p>
+							<div style="display:flex;flex-wrap:wrap;gap:10px;">
+								<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $event_editor_url ); ?>"><?php esc_html_e( 'Manage event page', 'owambe-connect-core' ); ?></a>
+								<a class="oc-vd__btn" href="<?php echo esc_url( get_permalink( $my_event ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View / share', 'owambe-connect-core' ); ?> ↗</a>
+							</div>
+						</div>
+					<?php else : ?>
+						<div class="oc-cd__empty">
+							<span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
+							<h2><?php esc_html_e( 'Create your event page', 'owambe-connect-core' ); ?></h2>
+							<p><?php esc_html_e( 'Build a beautiful page for your event — with your story, schedule, RSVP and gift registry — and share it with guests on WhatsApp.', 'owambe-connect-core' ); ?></p>
+							<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $event_editor_url ); ?>"><?php esc_html_e( 'Create your event page', 'owambe-connect-core' ); ?> →</a>
+						</div>
+					<?php endif; ?>
 				</section>
 
 				<!-- ============== Planning resources ============== -->
