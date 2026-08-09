@@ -455,63 +455,78 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 		<aside class="oc-vp__aside">
 			<div class="oc-vp__card oc-vp__card--contact" id="oc-contact">
 				<h3><?php esc_html_e( 'Get in touch', 'owambe-connect-core' ); ?></h3>
+				<p class="oc-vp__contact-lead"><?php esc_html_e( 'We\'d love to hear from you. Choose your preferred way to connect.', 'owambe-connect-core' ); ?></p>
 
-				<?php if ( $wa_link ) : ?>
-					<a class="oc-vp__channel" href="<?php echo esc_url( $wa_link ); ?>" target="_blank" rel="noopener noreferrer" data-oc-track="whatsapp" data-vendor="<?php echo (int) $id; ?>">
-						<span class="oc-vp__channel-icon" style="background:#25D366">💬</span>
-						<span class="oc-vp__channel-info">
-							<strong><?php esc_html_e( 'WhatsApp', 'owambe-connect-core' ); ?></strong>
-							<small><?php echo esc_html( $whatsapp ); ?></small>
-						</span>
-						<span class="oc-vp__channel-arrow" aria-hidden="true">→</span>
-					</a>
-				<?php endif; ?>
+				<?php
+				// N1 (Aug 2026) — each channel is a prominent, whole-row-clickable
+				// CTA card: icon tile + label/subtitle/detail + a coloured action
+				// button. Built as one array so every row keeps identical markup
+				// and the existing data-oc-track / target / rel tracking is
+				// preserved verbatim. The button is decorative (aria-hidden) —
+				// the surrounding <a> is the single accessible link per channel.
+				$svg = [
+					'whatsapp'  => '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.15-1.7-.85-2-.94-.26-.1-.45-.15-.64.15-.19.29-.74.94-.9 1.13-.17.19-.33.21-.62.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.29-.02-.45.13-.6.13-.13.29-.33.44-.5.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.5-.08-.15-.64-1.55-.88-2.12-.23-.55-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 .98-1 2.38s1.02 2.76 1.17 2.95c.15.19 2.02 3.08 4.9 4.32.68.29 1.22.47 1.63.6.69.22 1.31.19 1.8.11.55-.08 1.7-.69 1.94-1.36.24-.67.24-1.24.17-1.36-.07-.12-.26-.19-.55-.34zM12 2a10 10 0 00-8.6 15.06L2 22l5.06-1.33A10 10 0 1012 2z"/></svg>',
+					'email'     => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+					'instagram' => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>',
+					'facebook'  => '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M14 8.5V7c0-.7.3-1 1-1h1.5V3H14c-2.2 0-3.5 1.3-3.5 3.7V8.5H8V12h2.5v9H14v-9h2.3l.4-3.5H14z"/></svg>',
+					'website'   => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
+				];
 
-				<?php if ( $public_email && is_email( $public_email ) ) : ?>
-					<a class="oc-vp__channel" href="mailto:<?php echo esc_attr( $public_email ); ?>" data-oc-track="email" data-vendor="<?php echo (int) $id; ?>">
-						<span class="oc-vp__channel-icon" style="background:#A8893D">✉</span>
-						<span class="oc-vp__channel-info">
-							<strong><?php esc_html_e( 'Email', 'owambe-connect-core' ); ?></strong>
-							<small><?php echo esc_html( $public_email ); ?></small>
-						</span>
-						<span class="oc-vp__channel-arrow" aria-hidden="true">→</span>
-					</a>
-				<?php endif; ?>
+				$channels = [];
+				if ( $wa_link ) {
+					$channels[] = [ 'key' => 'whatsapp', 'href' => $wa_link, 'ext' => true,
+						'label' => __( 'WhatsApp', 'owambe-connect-core' ), 'sub' => __( 'Chat with us instantly', 'owambe-connect-core' ),
+						'detail' => $whatsapp, 'cta' => __( 'Chat Now', 'owambe-connect-core' ),
+						'aria' => sprintf( __( 'Chat with %s on WhatsApp (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
+				}
+				if ( $public_email && is_email( $public_email ) ) {
+					$channels[] = [ 'key' => 'email', 'href' => 'mailto:' . $public_email, 'ext' => false,
+						'label' => __( 'Email', 'owambe-connect-core' ), 'sub' => __( 'Send an enquiry', 'owambe-connect-core' ),
+						'detail' => $public_email, 'cta' => __( 'Send Email', 'owambe-connect-core' ),
+						'aria' => sprintf( __( 'Email %s', 'owambe-connect-core' ), $title ) ];
+				}
+				if ( $ig_link ) {
+					$channels[] = [ 'key' => 'instagram', 'href' => $ig_link, 'ext' => true,
+						'label' => __( 'Instagram', 'owambe-connect-core' ), 'sub' => __( 'See our latest work', 'owambe-connect-core' ),
+						'detail' => '@' . $instagram, 'cta' => __( 'View Instagram', 'owambe-connect-core' ),
+						'aria' => sprintf( __( 'View %s on Instagram (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
+				}
+				if ( $fb_link ) {
+					$channels[] = [ 'key' => 'facebook', 'href' => $fb_link, 'ext' => true,
+						'label' => __( 'Facebook', 'owambe-connect-core' ), 'sub' => __( 'Follow along', 'owambe-connect-core' ),
+						'detail' => __( 'Visit page', 'owambe-connect-core' ), 'cta' => __( 'View Facebook', 'owambe-connect-core' ),
+						'aria' => sprintf( __( 'View %s on Facebook (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
+				}
+				if ( $website ) {
+					$channels[] = [ 'key' => 'website', 'href' => $website, 'ext' => true,
+						'label' => __( 'Website', 'owambe-connect-core' ), 'sub' => __( 'Visit our official website', 'owambe-connect-core' ),
+						'detail' => $website_host ?: $website, 'cta' => __( 'Visit Website', 'owambe-connect-core' ),
+						'aria' => sprintf( __( 'Visit the %s website (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
+				}
+				?>
 
-				<?php if ( $ig_link ) : ?>
-					<a class="oc-vp__channel" href="<?php echo esc_url( $ig_link ); ?>" target="_blank" rel="noopener noreferrer" data-oc-track="instagram" data-vendor="<?php echo (int) $id; ?>">
-						<span class="oc-vp__channel-icon" style="background:linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)">IG</span>
-						<span class="oc-vp__channel-info">
-							<strong><?php esc_html_e( 'Instagram', 'owambe-connect-core' ); ?></strong>
-							<small>@<?php echo esc_html( $instagram ); ?></small>
-						</span>
-						<span class="oc-vp__channel-arrow" aria-hidden="true">→</span>
-					</a>
-				<?php endif; ?>
-
-				<?php if ( $fb_link ) : ?>
-					<a class="oc-vp__channel" href="<?php echo esc_url( $fb_link ); ?>" target="_blank" rel="noopener noreferrer" data-oc-track="facebook" data-vendor="<?php echo (int) $id; ?>">
-						<span class="oc-vp__channel-icon" style="background:#1877F2">f</span>
-						<span class="oc-vp__channel-info">
-							<strong><?php esc_html_e( 'Facebook', 'owambe-connect-core' ); ?></strong>
-							<small><?php esc_html_e( 'Visit page', 'owambe-connect-core' ); ?></small>
-						</span>
-						<span class="oc-vp__channel-arrow" aria-hidden="true">→</span>
-					</a>
-				<?php endif; ?>
-
-				<?php if ( $website ) : ?>
-					<a class="oc-vp__channel" href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener noreferrer" data-oc-track="website" data-vendor="<?php echo (int) $id; ?>">
-						<span class="oc-vp__channel-icon" style="background:var(--oc-burgundy,#6E0F2C)">🌐</span>
-						<span class="oc-vp__channel-info">
-							<strong><?php esc_html_e( 'Website', 'owambe-connect-core' ); ?></strong>
-							<small><?php echo esc_html( $website_host ?: $website ); ?></small>
-						</span>
-						<span class="oc-vp__channel-arrow" aria-hidden="true">→</span>
-					</a>
-				<?php endif; ?>
-
-				<?php if ( ! $wa_link && ! $ig_link && ! $fb_link && ! $website && ! ( $public_email && is_email( $public_email ) ) ) : ?>
+				<?php if ( $channels ) : ?>
+					<div class="oc-vp__cchans">
+						<?php foreach ( $channels as $ch ) : ?>
+							<a class="oc-vp__cchan oc-vp__cchan--<?php echo esc_attr( $ch['key'] ); ?>"
+								href="<?php echo esc_url( $ch['href'] ); ?>"
+								<?php if ( $ch['ext'] ) : ?>target="_blank" rel="noopener noreferrer"<?php endif; ?>
+								data-oc-track="<?php echo esc_attr( $ch['key'] ); ?>" data-vendor="<?php echo (int) $id; ?>"
+								aria-label="<?php echo esc_attr( $ch['aria'] ); ?>">
+								<span class="oc-vp__cchan-icon" aria-hidden="true"><?php echo $svg[ $ch['key'] ]; // phpcs:ignore — trusted inline SVG ?></span>
+								<span class="oc-vp__cchan-info">
+									<span class="oc-vp__cchan-label"><?php echo esc_html( $ch['label'] ); ?></span>
+									<span class="oc-vp__cchan-sub"><?php echo esc_html( $ch['sub'] ); ?></span>
+									<span class="oc-vp__cchan-detail"><?php echo esc_html( $ch['detail'] ); ?></span>
+								</span>
+								<span class="oc-vp__cchan-btn" aria-hidden="true">
+									<span class="oc-vp__cchan-btn-icon"><?php echo $svg[ $ch['key'] ]; // phpcs:ignore — trusted inline SVG ?></span>
+									<span class="oc-vp__cchan-btn-text"><?php echo esc_html( $ch['cta'] ); ?></span>
+								</span>
+							</a>
+						<?php endforeach; ?>
+					</div>
+				<?php else : ?>
 					<p class="oc-vp__no-contact"><?php esc_html_e( 'This vendor hasn\'t added contact details yet.', 'owambe-connect-core' ); ?></p>
 				<?php endif; ?>
 			</div>
