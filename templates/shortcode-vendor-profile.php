@@ -472,35 +472,37 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 					'website'   => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>',
 				];
 
+				// 'cta' is the short pill label on the right; the full descriptive
+				// action lives in the aria-label so screen readers get the context.
 				$channels = [];
 				if ( $wa_link ) {
 					$channels[] = [ 'key' => 'whatsapp', 'href' => $wa_link, 'ext' => true,
 						'label' => __( 'WhatsApp', 'owambe-connect-core' ), 'sub' => __( 'Chat with us instantly', 'owambe-connect-core' ),
-						'detail' => $whatsapp, 'cta' => __( 'Chat Now', 'owambe-connect-core' ),
+						'cta' => __( 'Chat', 'owambe-connect-core' ),
 						'aria' => sprintf( __( 'Chat with %s on WhatsApp (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
 				}
 				if ( $public_email && is_email( $public_email ) ) {
 					$channels[] = [ 'key' => 'email', 'href' => 'mailto:' . $public_email, 'ext' => false,
 						'label' => __( 'Email', 'owambe-connect-core' ), 'sub' => __( 'Send an enquiry', 'owambe-connect-core' ),
-						'detail' => $public_email, 'cta' => __( 'Send Email', 'owambe-connect-core' ),
+						'cta' => __( 'Email', 'owambe-connect-core' ),
 						'aria' => sprintf( __( 'Email %s', 'owambe-connect-core' ), $title ) ];
 				}
 				if ( $ig_link ) {
 					$channels[] = [ 'key' => 'instagram', 'href' => $ig_link, 'ext' => true,
 						'label' => __( 'Instagram', 'owambe-connect-core' ), 'sub' => __( 'See our latest work', 'owambe-connect-core' ),
-						'detail' => '@' . $instagram, 'cta' => __( 'View Instagram', 'owambe-connect-core' ),
+						'cta' => __( 'View', 'owambe-connect-core' ),
 						'aria' => sprintf( __( 'View %s on Instagram (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
 				}
 				if ( $fb_link ) {
 					$channels[] = [ 'key' => 'facebook', 'href' => $fb_link, 'ext' => true,
 						'label' => __( 'Facebook', 'owambe-connect-core' ), 'sub' => __( 'Follow along', 'owambe-connect-core' ),
-						'detail' => __( 'Visit page', 'owambe-connect-core' ), 'cta' => __( 'View Facebook', 'owambe-connect-core' ),
+						'cta' => __( 'Follow', 'owambe-connect-core' ),
 						'aria' => sprintf( __( 'View %s on Facebook (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
 				}
 				if ( $website ) {
 					$channels[] = [ 'key' => 'website', 'href' => $website, 'ext' => true,
 						'label' => __( 'Website', 'owambe-connect-core' ), 'sub' => __( 'Visit our official website', 'owambe-connect-core' ),
-						'detail' => $website_host ?: $website, 'cta' => __( 'Visit Website', 'owambe-connect-core' ),
+						'cta' => __( 'Visit', 'owambe-connect-core' ),
 						'aria' => sprintf( __( 'Visit the %s website (opens in a new tab)', 'owambe-connect-core' ), $title ) ];
 				}
 				?>
@@ -517,12 +519,8 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 								<span class="oc-vp__cchan-info">
 									<span class="oc-vp__cchan-label"><?php echo esc_html( $ch['label'] ); ?></span>
 									<span class="oc-vp__cchan-sub"><?php echo esc_html( $ch['sub'] ); ?></span>
-									<span class="oc-vp__cchan-detail"><?php echo esc_html( $ch['detail'] ); ?></span>
 								</span>
-								<span class="oc-vp__cchan-btn" aria-hidden="true">
-									<span class="oc-vp__cchan-btn-icon"><?php echo $svg[ $ch['key'] ]; // phpcs:ignore — trusted inline SVG ?></span>
-									<span class="oc-vp__cchan-btn-text"><?php echo esc_html( $ch['cta'] ); ?></span>
-								</span>
+								<span class="oc-vp__cchan-btn" aria-hidden="true"><span class="oc-vp__cchan-btn-text"><?php echo esc_html( $ch['cta'] ); ?></span><svg class="oc-vp__cchan-btn-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
 							</a>
 						<?php endforeach; ?>
 					</div>

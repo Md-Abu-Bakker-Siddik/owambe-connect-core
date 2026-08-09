@@ -275,21 +275,38 @@ $resources_url = oc_page_url( 'planning-resources' );
 						<p><?php esc_html_e( 'A shareable page for your big day.', 'owambe-connect-core' ); ?></p>
 					</header>
 
-					<?php if ( $has_event ) : ?>
-						<div class="oc-vd__card">
-							<h2 style="margin-top:0;"><?php echo esc_html( get_the_title( $my_event ) ?: __( 'Your event', 'owambe-connect-core' ) ); ?></h2>
-							<p style="color:#6B6361;margin:0 0 16px;"><?php esc_html_e( 'Edit your story, schedule, RSVP and gift registry, then share the page with your guests.', 'owambe-connect-core' ); ?></p>
-							<div style="display:flex;flex-wrap:wrap;gap:10px;">
-								<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $event_editor_url ); ?>"><?php esc_html_e( 'Manage event page', 'owambe-connect-core' ); ?></a>
-								<a class="oc-vd__btn" href="<?php echo esc_url( get_permalink( $my_event ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'View / share', 'owambe-connect-core' ); ?> ↗</a>
+					<?php if ( $has_event ) :
+						$is_live = ( 'publish' === get_post_status( $my_event ) );
+						?>
+						<div class="oc-vd__card oc-vd__event">
+							<div class="oc-vd__event-head">
+								<div class="oc-vd__event-heading">
+									<span class="oc-vd__event-eyebrow"><?php esc_html_e( 'Your event page', 'owambe-connect-core' ); ?></span>
+									<h2 class="oc-vd__event-title"><?php echo esc_html( get_the_title( $my_event ) ?: __( 'Your event', 'owambe-connect-core' ) ); ?></h2>
+								</div>
+								<span class="oc-vd__event-status oc-vd__event-status--<?php echo $is_live ? 'live' : 'draft'; ?>">
+									<?php echo $is_live ? esc_html__( 'Live', 'owambe-connect-core' ) : esc_html__( 'Draft', 'owambe-connect-core' ); ?>
+								</span>
+							</div>
+							<p class="oc-vd__event-desc"><?php esc_html_e( 'Edit your story, schedule, RSVP and gift registry, then share the page with your guests.', 'owambe-connect-core' ); ?></p>
+							<div class="oc-vd__event-actions">
+								<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $event_editor_url ); ?>">
+									<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+									<?php esc_html_e( 'Manage event page', 'owambe-connect-core' ); ?>
+								</a>
+								<a class="oc-vd__btn oc-vd__btn--outline" href="<?php echo esc_url( get_permalink( $my_event ) ); ?>" target="_blank" rel="noopener">
+									<?php esc_html_e( 'View / share', 'owambe-connect-core' ); ?>
+									<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg>
+								</a>
 							</div>
 						</div>
 					<?php else : ?>
-						<div class="oc-cd__empty">
-							<span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
+						<div class="oc-cd__empty oc-vd__event-empty">
+							<span class="oc-vd__event-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></span>
 							<h2><?php esc_html_e( 'Create your event page', 'owambe-connect-core' ); ?></h2>
-							<p><?php esc_html_e( 'Build a beautiful page for your event — with your story, schedule, RSVP and gift registry — and share it with guests on WhatsApp.', 'owambe-connect-core' ); ?></p>
-							<a class="oc-vd__btn oc-vd__btn--primary" href="<?php echo esc_url( $event_editor_url ); ?>"><?php esc_html_e( 'Create your event page', 'owambe-connect-core' ); ?> →</a>
+							<p class="oc-vd__event-empty-lead"><?php esc_html_e( 'Build a beautiful page for your event — story, schedule, RSVP and gift registry — and share it with your guests on WhatsApp.', 'owambe-connect-core' ); ?></p>
+							<a class="oc-vd__btn oc-vd__btn--primary oc-vd__btn--lg" href="<?php echo esc_url( $event_editor_url ); ?>"><span class="oc-vd__btn-plus" aria-hidden="true">+</span> <?php esc_html_e( 'Create Event', 'owambe-connect-core' ); ?></a>
+							<p class="oc-vd__event-empty-hint"><?php esc_html_e( 'Takes about two minutes — we\'ll guide you step by step, and nothing goes public until you choose to share it.', 'owambe-connect-core' ); ?></p>
 						</div>
 					<?php endif; ?>
 				</section>
