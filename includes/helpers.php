@@ -771,7 +771,7 @@ function oc_contains_url( $value ) {
 		'~www\.[a-z0-9-]~',           // www.something
 		'~\[url[=\]]~',               // BBCode [url]
 		'~\]\(\s*[a-z]+:~',           // markdown [text](scheme:
-		'~[a-z0-9-]+\.(?:com|net|org|info|xyz|ru|top|io|co|uk|de|cn|biz|link|click|shop|online|site)(?:[/?#]|$)~',
+		'~[a-z0-9-]+\.(?:com|net|org|info|xyz|ru|top|io|co|uk|de|cn|biz|link|click|shop|online|site)(?:[/?#\s]|$)~',
 	];
 	foreach ( $patterns as $re ) {
 		if ( preg_match( $re, $flat ) || preg_match( $re, $despaced ) ) {
