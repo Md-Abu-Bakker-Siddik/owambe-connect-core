@@ -43,6 +43,27 @@ $areas          = (array)  get_post_meta( $id, '_oc_location_areas', true );
 $areas          = array_values( array_filter( array_map( 'trim', $areas ) ) );
 $regions        = (array)  get_post_meta( $id, '_oc_location_regions', true );
 $regions        = array_values( array_filter( array_map( 'trim', $regions ) ) );
+
+// N2: primary vs secondary location. The specific city list (`_oc_location_areas`)
+// is the coverage source; region-only legacy vendors fall back to
+// `_oc_location_regions`. Legacy fallback: with no explicit `_oc_primary_location`,
+// the FIRST covered place becomes the primary and the rest become "Also covers".
+$coverage       = $areas ?: $regions;
+$primary_loc    = trim( (string) get_post_meta( $id, '_oc_primary_location', true ) );
+if ( '' === $primary_loc && $coverage ) {
+	$primary_loc = (string) $coverage[0];
+}
+$secondary_locs = ( '' !== $primary_loc )
+	? array_values( array_filter( $coverage, static function ( $p ) use ( $primary_loc ) { return 0 !== strcasecmp( (string) $p, $primary_loc ); } ) )
+	: [];
+// Primary-first ordering for the hero's inline city list.
+$areas_ordered  = $areas;
+if ( '' !== $primary_loc && in_array( $primary_loc, $areas, true ) ) {
+	$areas_ordered = array_merge(
+		[ $primary_loc ],
+		array_values( array_filter( $areas, static function ( $a ) use ( $primary_loc ) { return 0 !== strcasecmp( $a, $primary_loc ); } ) )
+	);
+}
 // Tag pills read the taxonomies (admin-managed) and fall back to legacy
 // meta for any vendor not yet migrated/synced.
 $cultural       = class_exists( 'OC_Vendor_Tags' )
@@ -205,11 +226,11 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 						// Prefer the structured areas + country fields; fall back to the
 						// legacy free-text location if neither is set.
 						$location_display = '';
-						if ( $areas || $regions || $country_label ) {
+						if ( $areas_ordered || $regions || $country_label ) {
 							$bits = [];
-							if ( $areas ) {
-								$shown = array_slice( $areas, 0, 3 );
-								$extra = count( $areas ) - count( $shown );
+							if ( $areas_ordered ) {
+								$shown = array_slice( $areas_ordered, 0, 3 );
+								$extra = count( $areas_ordered ) - count( $shown );
 								$bits[] = esc_html( implode( ', ', $shown ) ) . ( $extra > 0 ? ' +' . (int) $extra : '' );
 							}
 							if ( $regions ) {
@@ -543,15 +564,26 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 				];
 			}
 
-			if ( $areas ) {
+			if ( '' !== $primary_loc ) {
+				// N2: "Primary: [X] · Also covers: [Y, Z]" — secondary omitted when empty.
+				$pin_icon    = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+				$value_plain = $primary_loc . ( $secondary_locs ? ' · ' . implode( ', ', $secondary_locs ) : '' );
+				$value_html  = '<strong class="oc-vp__fact-primary">' . esc_html( $primary_loc ) . '</strong>';
+				if ( $secondary_locs ) {
+					$value_html .= '<span class="oc-vp__fact-also"> · ' . esc_html__( 'Also covers', 'owambe-connect-core' ) . ': ' . esc_html( implode( ', ', $secondary_locs ) ) . '</span>';
+				}
 				$quick_rows[] = [
-					'icon'  => '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-					'label' => __( 'Areas covered', 'owambe-connect-core' ),
-					'value' => implode( ', ', $areas ),
+					'icon'       => $pin_icon,
+					'label'      => __( 'Primary location', 'owambe-connect-core' ),
+					'value'      => $value_plain,
+					'value_html' => $value_html,
 				];
 			}
 
-			if ( $regions ) {
+			// Regions are only shown as a SEPARATE supplementary row when the vendor
+			// also has specific cities (which drive the primary/secondary row above).
+			// Region-only vendors already surface via that row's coverage fallback.
+			if ( $regions && $areas ) {
 				$quick_rows[] = [
 					'icon'  => '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>',
 					'label' => __( 'Regions covered', 'owambe-connect-core' ),
@@ -624,7 +656,7 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 							<span class="oc-vp__fact-icon" aria-hidden="true"><?php echo $row['icon']; // phpcs:ignore — trusted inline SVG ?></span>
 							<span class="oc-vp__fact-text">
 								<span class="oc-vp__fact-label"><?php echo esc_html( $row['label'] ); ?></span>
-								<span class="oc-vp__fact-value"><?php echo esc_html( $row['value'] ); ?></span>
+								<span class="oc-vp__fact-value"><?php echo isset( $row['value_html'] ) ? $row['value_html'] : esc_html( $row['value'] ); // phpcs:ignore WordPress.Security.EscapeOutput — value_html is pre-escaped ?></span>
 							</span>
 						</li>
 					<?php endforeach; ?>

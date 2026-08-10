@@ -125,6 +125,7 @@ class OC_Admin_Add_Vendor {
 			'business_name'        => '',
 			'location'             => '',
 			'location_country'     => '',
+			'location_primary'     => '',
 			'location_areas'       => [],
 			'location_regions'     => [],
 			'cultural_specialties' => [],
@@ -158,6 +159,7 @@ class OC_Admin_Add_Vendor {
 				$values['business_name']        = get_post_meta( $edit_id, '_oc_business_name', true ) ?: $edit_post->post_title;
 				$values['location']             = (string) get_post_meta( $edit_id, '_oc_location',             true );
 				$values['location_country']     = (string) get_post_meta( $edit_id, '_oc_location_country',     true );
+				$values['location_primary']     = (string) get_post_meta( $edit_id, '_oc_primary_location',     true );
 				$values['location_areas']       = (array)  get_post_meta( $edit_id, '_oc_location_areas',       true );
 				$values['location_regions']     = (array)  get_post_meta( $edit_id, '_oc_location_regions',     true );
 				$values['cultural_specialties'] = (array)  get_post_meta( $edit_id, '_oc_cultural_specialties', true );
@@ -289,6 +291,13 @@ class OC_Admin_Add_Vendor {
 								</div>
 							</div>
 							<?php endif; ?>
+							<p class="oc-av-row">
+								<label for="av-primary-location"><?php esc_html_e( 'Primary location (main base)', 'owambe-connect-core' ); ?></label>
+								<select id="av-primary-location" name="location_primary">
+									<option value=""><?php esc_html_e( '— None / not set —', 'owambe-connect-core' ); ?></option>
+									<?php echo oc_primary_location_options_html( $values['location_primary'] ); // phpcs:ignore WordPress.Security.EscapeOutput — options are individually escaped ?>
+								</select>
+							</p>
 							<p class="oc-av-row">
 								<label><?php esc_html_e( 'Cities / areas covered', 'owambe-connect-core' ); ?></label>
 								<span class="oc-av-chip-actions">
@@ -1280,6 +1289,10 @@ class OC_Admin_Add_Vendor {
 		$areas = isset( $_POST['location_areas'] )
 			? oc_sanitize_csv( wp_unslash( $_POST['location_areas'] ) )
 			: [];
+		// N2: single primary location (validated against the known city list).
+		$primary = isset( $_POST['location_primary'] )
+			? oc_sanitize_primary_location( wp_unslash( $_POST['location_primary'] ) )
+			: '';
 
 		// Regions: England-only; validate against the canonical list and drop
 		// if the vendor isn't in England (mirrors the dashboard saver).
@@ -1332,6 +1345,7 @@ class OC_Admin_Add_Vendor {
 			'_oc_location'             => $loc_summary,
 			'_oc_location_country'     => $country,
 			'_oc_location_areas'       => $areas,
+			'_oc_primary_location'     => $primary,
 			'_oc_location_regions'     => $regions,
 			'_oc_cultural_specialties' => $cultural,
 			'_oc_nigerian_specialty'   => $nigerian,

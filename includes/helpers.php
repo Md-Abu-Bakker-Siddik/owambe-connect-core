@@ -167,6 +167,49 @@ function oc_country_options() {
 }
 
 /**
+ * N2 — Primary location. Flat list of every valid city, used to validate the
+ * single `_oc_primary_location` value on save.
+ */
+function oc_all_cities() {
+	static $flat = null;
+	if ( null === $flat ) {
+		$flat = [];
+		foreach ( oc_cities_by_country() as $cities ) {
+			$flat = array_merge( $flat, $cities );
+		}
+	}
+	return $flat;
+}
+
+/**
+ * N2 — Sanitize a posted primary-location value: it must be one of the known
+ * cities (the same list that populates the picker), otherwise treated as empty.
+ */
+function oc_sanitize_primary_location( $raw ) {
+	$val = sanitize_text_field( (string) $raw );
+	return ( '' !== $val && in_array( $val, oc_all_cities(), true ) ) ? $val : '';
+}
+
+/**
+ * N2 — Shared <optgroup>/<option> markup for the primary-location <select>,
+ * reused by the vendor dashboard + admin Add/Edit Vendor forms.
+ */
+function oc_primary_location_options_html( $selected = '' ) {
+	$selected = (string) $selected;
+	$labels   = oc_country_options();
+	$out      = '';
+	foreach ( oc_cities_by_country() as $country => $cities ) {
+		$label = isset( $labels[ $country ] ) ? $labels[ $country ] : ucwords( str_replace( '-', ' ', $country ) );
+		$out  .= '<optgroup label="' . esc_attr( $label ) . '">';
+		foreach ( $cities as $city ) {
+			$out .= '<option value="' . esc_attr( $city ) . '"' . selected( $selected, $city, false ) . '>' . esc_html( $city ) . '</option>';
+		}
+		$out .= '</optgroup>';
+	}
+	return $out;
+}
+
+/**
  * UK city/area options, grouped by constituent country. This is the
  * single source of truth — the flat `oc_city_options()` list and the
  * `oc_country_for_city()` lookup both derive from this map. Filterable

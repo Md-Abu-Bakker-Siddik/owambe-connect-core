@@ -55,6 +55,7 @@ $values = [
 	'business_name'        => get_post_meta( $id, '_oc_business_name', true ) ?: get_the_title( $id ),
 	'location'             => get_post_meta( $id, '_oc_location',      true ),
 	'location_country'     => get_post_meta( $id, '_oc_location_country', true ),
+	'location_primary'     => get_post_meta( $id, '_oc_primary_location', true ),
 	'location_areas'       => (array) get_post_meta( $id, '_oc_location_areas', true ),
 	'location_regions'     => (array) get_post_meta( $id, '_oc_location_regions', true ),
 	'cultural_specialties' => (array) get_post_meta( $id, '_oc_cultural_specialties', true ),
@@ -635,6 +636,16 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 								</div>
 							</div>
 							<?php endif; ?>
+
+							<div class="oc-vd__field" data-oc-field="primary">
+								<label for="d-primary-location"><?php esc_html_e( 'Primary location', 'owambe-connect-core' ); ?>
+									<small><?php esc_html_e( 'Your main base — this centres the "near me" radius search. Tick everywhere else you cover below.', 'owambe-connect-core' ); ?></small>
+								</label>
+								<select id="d-primary-location" name="location_primary" class="oc-vd__select">
+									<option value=""><?php esc_html_e( '— Select your main base —', 'owambe-connect-core' ); ?></option>
+									<?php echo oc_primary_location_options_html( $values['location_primary'] ); // phpcs:ignore WordPress.Security.EscapeOutput — options are individually escaped ?>
+								</select>
+							</div>
 
 							<div class="oc-vd__field" data-oc-field="areas">
 								<label id="d-areas-label"><?php esc_html_e( 'Cities / areas you cover', 'owambe-connect-core' ); ?>

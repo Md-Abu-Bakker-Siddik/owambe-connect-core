@@ -399,6 +399,10 @@ class OC_Dashboard {
 		$areas   = isset( $_POST['location_areas'] )
 			? oc_sanitize_csv( wp_unslash( $_POST['location_areas'] ) )
 			: [];
+		// N2: single primary location (validated against the known city list).
+		$primary = isset( $_POST['location_primary'] )
+			? oc_sanitize_primary_location( wp_unslash( $_POST['location_primary'] ) )
+			: '';
 		$country_options = oc_country_options();
 		if ( $country && ! isset( $country_options[ $country ] ) ) {
 			$country = ''; // drop unknown values
@@ -448,6 +452,7 @@ class OC_Dashboard {
 			'_oc_location'             => $loc_summary,
 			'_oc_location_country'     => $country,
 			'_oc_location_areas'       => $areas,
+			'_oc_primary_location'     => $primary,
 			'_oc_location_regions'     => $regions,
 			'_oc_cultural_specialties' => $cultural,
 			'_oc_nigerian_specialty'   => $nigerian,

@@ -33,6 +33,10 @@ class OC_Geo {
 	const NORM_BACKFILL_VERSION = 1;
 	const NORM_BACKFILL_OPTION  = 'oc_location_norm_backfilled';
 
+	/** N2 — one-time backfill of `_oc_primary_location` from the first area. */
+	const PRIMARY_BACKFILL_VERSION = 1;
+	const PRIMARY_BACKFILL_OPTION  = 'oc_primary_location_backfilled';
+
 	public function register() {
 		add_action( 'oc_after_vendor_updated',    [ __CLASS__, 'write_coords' ] );
 		add_action( 'oc_after_vendor_registered', [ __CLASS__, 'write_coords' ] );
@@ -49,6 +53,9 @@ class OC_Geo {
 		// H2 — one-time search-normalization backfill for existing vendors
 		// (option-versioned; runs on the first wp-admin load after deploy).
 		add_action( 'admin_init', [ __CLASS__, 'maybe_backfill_location_norm' ] );
+
+		// N2 — one-time primary-location backfill (first area → primary).
+		add_action( 'admin_init', [ __CLASS__, 'maybe_backfill_primary_location' ] );
 	}
 
 	/**
@@ -57,7 +64,7 @@ class OC_Geo {
 	 * @param string    $meta_key  Meta key that changed.
 	 */
 	public static function on_location_meta_change( $meta_id, $object_id, $meta_key ) {
-		if ( ! in_array( $meta_key, [ '_oc_location_areas', '_oc_location_regions', '_oc_location' ], true ) ) {
+		if ( ! in_array( $meta_key, [ '_oc_location_areas', '_oc_location_regions', '_oc_location', '_oc_primary_location' ], true ) ) {
 			return;
 		}
 		if ( OC_CPT !== get_post_type( $object_id ) ) {
@@ -183,11 +190,20 @@ class OC_Geo {
 	 * @return array{0: float, 1: float}|null
 	 */
 	public static function resolve_coords( $vendor_id, $allow_geocode = true ) {
-		$areas = array_values( array_filter( array_map( 'trim', (array) get_post_meta( $vendor_id, '_oc_location_areas', true ) ) ) );
-		if ( $areas ) {
+		$primary = trim( (string) get_post_meta( $vendor_id, '_oc_primary_location', true ) );
+		$areas   = array_values( array_filter( array_map( 'trim', (array) get_post_meta( $vendor_id, '_oc_location_areas', true ) ) ) );
+
+		// N2: the primary location is the radius-search centre; fall back to the
+		// first secondary area. Check both against the zero-API city table.
+		$city_candidates = array_values( array_unique( array_filter(
+			array_merge( '' !== $primary ? [ $primary ] : [], $areas ? [ $areas[0] ] : [] )
+		) ) );
+		if ( $city_candidates ) {
 			$table = self::city_coords();
-			if ( isset( $table[ $areas[0] ] ) ) {
-				return $table[ $areas[0] ];
+			foreach ( $city_candidates as $city ) {
+				if ( isset( $table[ $city ] ) ) {
+					return $table[ $city ];
+				}
 			}
 		}
 
@@ -201,7 +217,7 @@ class OC_Geo {
 
 		if ( $allow_geocode ) {
 			$summary = trim( (string) get_post_meta( $vendor_id, '_oc_location', true ) );
-			$query   = $summary ? $summary : ( $areas ? $areas[0] : '' );
+			$query   = $summary ? $summary : ( '' !== $primary ? $primary : ( $areas ? $areas[0] : '' ) );
 			if ( '' !== $query ) {
 				$hit = self::geocode( $query );
 				if ( $hit ) {
@@ -267,6 +283,47 @@ class OC_Geo {
 			self::write_location_norm( $id );
 		}
 		update_option( self::NORM_BACKFILL_OPTION, self::NORM_BACKFILL_VERSION );
+	}
+
+	/**
+	 * N2 — one-time (versioned) backfill: give every existing vendor without a
+	 * primary location the FIRST item of its `_oc_location_areas`. Never
+	 * overwrites a vendor-set primary. Setting the meta re-triggers the geo
+	 * meta-hook, but since primary == first area the resolved coords are
+	 * unchanged (zero extra API calls).
+	 *
+	 * @return int Number of vendors updated (also callable from a CLI script).
+	 */
+	public static function backfill_primary_location() {
+		$ids = get_posts( [
+			'post_type'     => OC_CPT,
+			'post_status'   => array_values( array_diff( array_keys( get_post_stati() ), [ 'trash', 'auto-draft', 'inherit' ] ) ),
+			'numberposts'   => -1,
+			'fields'        => 'ids',
+			'no_found_rows' => true,
+		] );
+		$updated = 0;
+		foreach ( $ids as $id ) {
+			if ( '' !== trim( (string) get_post_meta( $id, '_oc_primary_location', true ) ) ) {
+				continue; // respect an existing primary
+			}
+			$areas = array_values( array_filter( array_map( 'trim', (array) get_post_meta( $id, '_oc_location_areas', true ) ) ) );
+			if ( ! $areas ) {
+				continue;
+			}
+			update_post_meta( $id, '_oc_primary_location', $areas[0] );
+			$updated++;
+		}
+		return $updated;
+	}
+
+	/** Option-gated wrapper so the backfill runs exactly once after deploy. */
+	public static function maybe_backfill_primary_location() {
+		if ( (int) get_option( self::PRIMARY_BACKFILL_OPTION, 0 ) >= self::PRIMARY_BACKFILL_VERSION ) {
+			return;
+		}
+		self::backfill_primary_location();
+		update_option( self::PRIMARY_BACKFILL_OPTION, self::PRIMARY_BACKFILL_VERSION );
 	}
 
 	/**
