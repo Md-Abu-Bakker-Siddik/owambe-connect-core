@@ -210,6 +210,49 @@ function oc_primary_location_options_html( $selected = '' ) {
 }
 
 /**
+ * N3 — Validate a vendor intro-video URL. Only standard YouTube / Vimeo URLs
+ * are accepted (the only providers we render); anything else returns ''.
+ */
+function oc_sanitize_video_url( $raw ) {
+	$url = esc_url_raw( trim( (string) $raw ) );
+	if ( '' === $url ) {
+		return '';
+	}
+	$host = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+	$host = preg_replace( '/^www\./', '', $host );
+	$allowed = [ 'youtube.com', 'm.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'vimeo.com', 'player.vimeo.com' ];
+	return in_array( $host, $allowed, true ) ? $url : '';
+}
+
+/**
+ * N3 — Return responsive, lazy-loaded oEmbed HTML for a vendor video URL, or ''
+ * if invalid/unavailable. Result is transient-cached (7 days; failures cached
+ * for 1 hour) so profile views don't re-hit the provider on every render.
+ */
+function oc_video_embed_html( $url ) {
+	$url = oc_sanitize_video_url( $url );
+	if ( '' === $url ) {
+		return '';
+	}
+	$key    = 'oc_vembed_' . md5( $url );
+	$cached = get_transient( $key );
+	if ( false !== $cached ) {
+		return (string) $cached; // hit (incl. a cached negative empty string)
+	}
+	$html = wp_oembed_get( $url, [ 'width' => 1280 ] );
+	if ( ! $html ) {
+		set_transient( $key, '', HOUR_IN_SECONDS ); // negative cache
+		return '';
+	}
+	// Ensure the iframe lazy-loads.
+	if ( false === strpos( $html, ' loading=' ) ) {
+		$html = preg_replace( '/<iframe /', '<iframe loading="lazy" ', $html, 1 );
+	}
+	set_transient( $key, $html, 7 * DAY_IN_SECONDS );
+	return $html;
+}
+
+/**
  * UK city/area options, grouped by constituent country. This is the
  * single source of truth — the flat `oc_city_options()` list and the
  * `oc_country_for_city()` lookup both derive from this map. Filterable

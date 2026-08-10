@@ -216,3 +216,47 @@ line was dropped for compactness — the full value stays in the link + `aria-la
    "Primary: [X] · Also covers: [Y, Z]"; the hero lists the primary first.
 5. **Radius:** set a vendor's primary to a known city, run a "near me" search centred on
    that city → the vendor appears; changing the primary re-centres it.
+
+---
+
+## 6. Embedded Video on Vendor Profiles (N3)
+
+### What was done
+- New meta **`_oc_video_url`** — a single YouTube/Vimeo link per vendor.
+- **Validation** (`helpers.php`): `oc_sanitize_video_url()` — `esc_url_raw` + host
+  allow-list (`youtube.com`, `m.youtube.com`, `youtu.be`, `youtube-nocookie.com`,
+  `vimeo.com`, `player.vimeo.com`); anything else returns `''`.
+- **Render helper** (`helpers.php`): `oc_video_embed_html()` — validates, then returns
+  `wp_oembed_get()` HTML with `loading="lazy"` forced onto the iframe. Transient-cached
+  (7 days; failures negative-cached 1 hour) so profile views don't re-hit the provider.
+- **Forms:** a "Intro video (YouTube/Vimeo)" URL field with a helper note in both the
+  Vendor Dashboard (`shortcode-vendor-dashboard.php` + `class-dashboard.php`) and the
+  Admin Add/Edit Vendor form (`class-admin-add-vendor.php`), saved via each form's
+  existing `$pairs` write using `oc_sanitize_video_url()`.
+- **Profile** (`shortcode-vendor-profile.php`): a "Video" section (`id="oc-video"`) before
+  Portfolio, with a matching section-nav link. Rendered inside a responsive **16:9**
+  container (`vendor-profile.css`: `.oc-vp__video { aspect-ratio: 16 / 9 }` + absolute-fill
+  iframe). The section only appears when a valid embed resolves.
+
+### Assumptions
+- Only YouTube and Vimeo are supported (the requested providers); other URLs are dropped
+  on save rather than stored.
+- oEmbed HTML from these providers is trusted; it's echoed unescaped inside the 16:9
+  wrapper (URL is validated first).
+- Requires outbound HTTP for the oEmbed lookup (same as the geocoder). On failure the
+  section is simply omitted — no error surfaced.
+
+### Blockers / Settings / Migrations
+- **Blockers:** None.
+- **Migration:** None (new optional field).
+- **Settings/Env:** No new settings. Needs outbound network for oEmbed; results are
+  transient-cached.
+
+### How to test
+1. **Dashboard:** paste a YouTube or Vimeo link into "Intro video", save, reload → persists.
+2. **Admin:** Add/Edit Vendor → set a video URL → `_oc_video_url` stored; a non-YouTube/
+   Vimeo URL is rejected (saved empty).
+3. **Profile:** open the vendor → a "Video" section shows the player in a responsive 16:9
+   frame that plays on-site; the iframe carries `loading="lazy"`; the section-nav shows a
+   "Video" link.
+4. **Empty:** a vendor with no video URL shows no Video section and no nav link.

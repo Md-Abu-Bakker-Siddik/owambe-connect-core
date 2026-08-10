@@ -71,6 +71,7 @@ $values = [
 	'instagram'            => get_post_meta( $id, '_oc_instagram',     true ),
 	'facebook'             => get_post_meta( $id, '_oc_facebook',      true ),
 	'website'               => get_post_meta( $id, '_oc_website',       true ),
+	'video_url'            => get_post_meta( $id, '_oc_video_url',     true ),
 	'languages'            => (array) get_post_meta( $id, '_oc_languages', true ),
 ];
 $logo_id          = (int) get_post_meta( $id, '_oc_logo_id',   true );
@@ -833,6 +834,10 @@ $verify_email_to  = $current_user_obj instanceof WP_User ? $current_user_obj->us
 							</div>
 							<div class="oc-vd__field"><label for="d-web"><?php esc_html_e( 'Website', 'owambe-connect-core' ); ?></label>
 								<input id="d-web" type="url" name="website" value="<?php echo esc_attr( $values['website'] ); ?>" placeholder="https://"/></div>
+							<div class="oc-vd__field"><label for="d-video"><?php esc_html_e( 'Intro video (YouTube or Vimeo)', 'owambe-connect-core' ); ?>
+									<small><?php esc_html_e( 'Paste a YouTube or Vimeo link and it plays right on your profile — e.g. https://youtu.be/abc123', 'owambe-connect-core' ); ?></small>
+								</label>
+								<input id="d-video" type="url" name="video_url" value="<?php echo esc_attr( $values['video_url'] ); ?>" placeholder="https://youtu.be/…"/></div>
 						</div>
 
 						<div class="oc-vd__sticky-bar">

@@ -31,6 +31,9 @@ $logo_id   = (int) get_post_meta( $id, '_oc_logo_id',   true );
 $banner_id = (int) get_post_meta( $id, '_oc_banner_id', true );
 $gallery_ids = (array) get_post_meta( $id, '_oc_gallery_ids', true );
 $gallery_ids = array_values( array_filter( array_map( 'intval', $gallery_ids ) ) );
+// N3: intro video — resolve the responsive, lazy-loaded oEmbed HTML once
+// (transient-cached; '' when unset or not a supported YouTube/Vimeo URL).
+$video_embed = function_exists( 'oc_video_embed_html' ) ? oc_video_embed_html( get_post_meta( $id, '_oc_video_url', true ) ) : '';
 $featured  = (int) get_post_meta( $id, '_oc_featured', true ) === 1;
 $cats      = wp_get_post_terms( $id, OC_TAX );
 if ( is_wp_error( $cats ) ) $cats = [];
@@ -153,6 +156,7 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 	$vp_nav_items = array_filter( [
 		'oc-about'      => $bio ? __( 'About', 'owambe-connect-core' ) : '',
 		'oc-services'   => $services ? __( 'Services', 'owambe-connect-core' ) : '',
+		'oc-video'      => $video_embed ? __( 'Video', 'owambe-connect-core' ) : '',
 		'oc-portfolio'  => $gallery_ids ? __( 'Portfolio', 'owambe-connect-core' ) : '',
 		'oc-how'        => __( 'How to book', 'owambe-connect-core' ),
 		'reviews'       => class_exists( 'OC_Reviews' ) ? __( 'Reviews', 'owambe-connect-core' ) : '',
@@ -408,6 +412,15 @@ if ( $rating_count > 0 && $rating_avg > 0 ) {
 					</section>
 				<?php endif;
 			endif; ?>
+
+			<?php if ( $video_embed ) : ?>
+				<section class="oc-vp__section" id="oc-video">
+					<h2><?php esc_html_e( 'Video', 'owambe-connect-core' ); ?></h2>
+					<div class="oc-vp__video">
+						<?php echo $video_embed; // phpcs:ignore WordPress.Security.EscapeOutput — oEmbed HTML from validated YouTube/Vimeo URLs ?>
+					</div>
+				</section>
+			<?php endif; ?>
 
 			<?php if ( $gallery_ids ) : ?>
 				<section class="oc-vp__section oc-vp__gallery-section" id="oc-portfolio">

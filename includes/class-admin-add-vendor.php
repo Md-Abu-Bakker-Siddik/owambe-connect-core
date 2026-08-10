@@ -141,6 +141,7 @@ class OC_Admin_Add_Vendor {
 			'instagram'            => '',
 			'facebook'             => '',
 			'website'              => '',
+			'video_url'            => '',
 			'languages'            => [],
 			'featured'             => 0,
 			'verified'             => 0,
@@ -177,6 +178,7 @@ class OC_Admin_Add_Vendor {
 				$values['instagram']            = (string) get_post_meta( $edit_id, '_oc_instagram',            true );
 				$values['facebook']             = (string) get_post_meta( $edit_id, '_oc_facebook',             true );
 				$values['website']              = (string) get_post_meta( $edit_id, '_oc_website',              true );
+				$values['video_url']            = (string) get_post_meta( $edit_id, '_oc_video_url',            true );
 				$langs                          = get_post_meta( $edit_id, '_oc_languages', true );
 				$values['languages']            = is_array( $langs ) ? $langs : ( $langs ? array_map( 'trim', explode( ',', (string) $langs ) ) : [] );
 				$values['featured']             = (int) get_post_meta( $edit_id, '_oc_featured',         true ) === 1 ? 1 : 0;
@@ -526,6 +528,11 @@ class OC_Admin_Add_Vendor {
 								<p>
 									<label for="av-web"><?php esc_html_e( 'Website', 'owambe-connect-core' ); ?></label>
 									<input id="av-web" type="url" name="website" placeholder="https://" value="<?php echo esc_attr( $values['website'] ); ?>"/>
+								</p>
+								<p>
+									<label for="av-video"><?php esc_html_e( 'Intro video (YouTube / Vimeo)', 'owambe-connect-core' ); ?></label>
+									<input id="av-video" type="url" name="video_url" placeholder="https://youtu.be/…" value="<?php echo esc_attr( $values['video_url'] ); ?>"/>
+									<span class="description"><?php esc_html_e( 'YouTube or Vimeo link only — it embeds and plays on the vendor profile.', 'owambe-connect-core' ); ?></span>
 								</p>
 							</div>
 						</div>
@@ -1359,6 +1366,7 @@ class OC_Admin_Add_Vendor {
 			'_oc_instagram'            => isset( $_POST['instagram'] )   ? oc_sanitize_handle( wp_unslash( $_POST['instagram'] ) )    : '',
 			'_oc_facebook'             => isset( $_POST['facebook'] )    ? sanitize_text_field( wp_unslash( $_POST['facebook'] ) )    : '',
 			'_oc_website'              => isset( $_POST['website'] )     ? esc_url_raw( wp_unslash( $_POST['website'] ) )             : '',
+			'_oc_video_url'            => isset( $_POST['video_url'] )   ? oc_sanitize_video_url( wp_unslash( $_POST['video_url'] ) )  : '',
 			'_oc_languages'            => isset( $_POST['languages'] )   ? oc_sanitize_csv( wp_unslash( $_POST['languages'] ) )       : [],
 			'_oc_featured'             => ! empty( $_POST['featured'] )       ? 1 : 0,
 			'_oc_verified'             => ! empty( $_POST['verified'] )       ? 1 : 0,

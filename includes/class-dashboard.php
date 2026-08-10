@@ -200,7 +200,7 @@ class OC_Dashboard {
 			'current_user'    => $current_uid,
 			'nonce_valid'     => isset( $_POST['oc_update_nonce'] ) && (bool) wp_verify_nonce( $_POST['oc_update_nonce'], self::ACTION_UPDATE ),
 			'post_id_in_post' => isset( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0,
-			'fields_received' => array_keys( array_intersect_key( $_POST, array_flip( [ 'business_name','location','location_country','location_areas','location_regions','cultural_specialties','nigerian_specialty','registered_business','vendor_tags','bio','services','price_range','whatsapp_local','public_email','instagram','facebook','website','languages','categories' ] ) ) ),
+			'fields_received' => array_keys( array_intersect_key( $_POST, array_flip( [ 'business_name','location','location_country','location_areas','location_regions','cultural_specialties','nigerian_specialty','registered_business','vendor_tags','bio','services','price_range','whatsapp_local','public_email','instagram','facebook','website','video_url','languages','categories' ] ) ) ),
 			'category_count'  => isset( $_POST['categories'] ) ? count( (array) $_POST['categories'] ) : 0,
 			'cap_ok'          => null,
 			'post_author'     => null,
@@ -466,6 +466,7 @@ class OC_Dashboard {
 			'_oc_instagram'            => isset( $_POST['instagram'] )   ? $cap( oc_sanitize_handle( wp_unslash( $_POST['instagram'] ) ), 60 ) : '',
 			'_oc_facebook'             => isset( $_POST['facebook'] )    ? $cap( sanitize_text_field( wp_unslash( $_POST['facebook'] ) ), 200 ) : '',
 			'_oc_website'              => isset( $_POST['website'] )     ? $cap( esc_url_raw( wp_unslash( $_POST['website'] ) ), 200 ) : '',
+			'_oc_video_url'            => isset( $_POST['video_url'] )   ? oc_sanitize_video_url( wp_unslash( $_POST['video_url'] ) ) : '',
 		];
 		foreach ( $pairs as $key => $value ) {
 			update_post_meta( $post_id, $key, $value );
